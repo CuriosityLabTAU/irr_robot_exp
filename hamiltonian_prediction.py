@@ -274,7 +274,7 @@ def pred_h_ij(df_H, method = 'lr'):
     :param df_H:
     :param method: lr - linear regression
                    ANN - beural network
-    :return: est, use: est.predict(X)1
+    :return: est, use: est.predict(X)
     '''
     if method == 'lr':
         formula = df_H.columns[-1] + '~' + df_H.columns[0]
