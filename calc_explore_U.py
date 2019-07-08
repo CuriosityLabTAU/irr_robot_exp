@@ -500,8 +500,8 @@ def compare_predictions(prediction_df):
 
 
 def main():
-    calcU = True
-    # calcU = False
+    # calcU = True
+    calcU = False
 
     average_U = True
     # average_U = False
