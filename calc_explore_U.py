@@ -109,8 +109,8 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         except:
             pass
 
+        ### get which qubits and the fallacy of the question
         all_q, fal = q_qubits_fal(qn)
-        # go over all 4 types of questions
 
         ### split the users to test and train using kfold - each user will be one time in test
         k = 10
@@ -182,9 +182,6 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
                     psi_0 = np.dot(q_info[qn]['U'], tu[1]['psi'])
 
                     p_real, d = sub_q_p(raw_df, u_id, 2)
-                    ### todo: check if I need tu[1] or tu[2] here
-                    ### 1 --> h_a, h_b calculated from questions 0 & 1.
-                    ### 2 --> h_a, h_b calculated from question 2 --> doesn't seem right.
                     sub_data_q = get_question_H(psi_0, all_q, p_real,
                                                 [tu[1]['h_q'][str(all_q[0])],
                                                  tu[1]['h_q'][str(all_q[1])]],
