@@ -34,9 +34,9 @@ questions = {'conj': {'Q2': [0, 1],
 
 ### todo: how many paramas we have for each model?
 dof_per_mode = {'mean80': 1,
-                'pre'   : 1,
+                'pre'   : 0,
                 'pred_U': 10,
-                'pred_I': 1,
+                'pred_I': 0,
 }
 
 
@@ -102,7 +102,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         # user_list = list(user_list)
         user_list = np.array(user_list)
 
-        user_list_train, user_list_test = train_test_split(user_list, test_size=.1, random_state=1)
+        user_list_train, user_list_test = train_test_split(user_list, test_size=.33, random_state=1)
         ### TODO: be careful with this!!!
         try:
             test_users[qn] = user_list_test.copy()
@@ -113,11 +113,16 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         all_q, fal = q_qubits_fal(qn)
 
         ### split the users to test and train using kfold - each user will be one time in test
-        k = 10
+        k = user_list_train.__len__() # 10
         kf = KFold(n_splits=k)
         kf.get_n_splits(user_list_train)
 
         print('=================================================================') # to differentiate between qn
+        # x0_i = np.zeros([10]) ### initialize x0 for the first run
+        n = 10
+        x_i = np.random.random(size=(n, n)) * 2.0 - 1.0
+        for j in range(n):
+            x0_i = x_i[j,:]
         for i, (train_index, test_index) in enumerate(kf.split(user_list_train)):
             print('>>> currently running k_fold analysis to calculate U on question: %s, k = %d/%d.' % (qn, i + 1, k))
             q_info[qn] = {}
@@ -158,10 +163,15 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
 
                 ### set bounds to all parameters
                 bounds = np.ones([10, 2])
-                bounds[:, 1] = -1
+                bounds[:, 0] = -1
 
                 res_temp = general_minimize(fun_to_minimize_grandH, args_=(all_q, train_q_data_qn, 0, fal),
-                                            x_0=np.zeros([10]), method='Powell') #L-BFGS-B, look at global optimizations at scipy.optimize
+                                            x_0=x0_i, method='L-BFGS-B', bounds=bounds) #, look at global optimizations at scipy.optimize
+                                            # x_0=np.zeros([10]), method='Powell', bounds=bounds) #L-BFGS-B, look at global optimizations at scipy.optimize
+                                                              # method='annealing'
+                ### update x0 for the next run
+                x0_i = np.copy(res_temp.x)
+                print(x0_i)
 
                 end = time.clock()
                 print('question %s, U optimization took %.2f s' % (qn, end - start))
@@ -500,11 +510,11 @@ def compare_predictions(prediction_df):
 
 
 def main():
-    # calcU = True
-    calcU = False
+    calcU = True
+    # calcU = False
 
-    average_U = True
-    # average_U = False
+    # average_U = True
+    average_U = False
 
     ### How many times to repeat the cross validation
     if calcU:

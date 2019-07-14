@@ -18,7 +18,6 @@ questions_fal = {'Q2': 1,
 
 
 ### which options correspond to which qubits
-# todo: fix this for the amt_for_U
 questions_options = {
     'Q2' : {'pa':{'0': 1},
             'pb':{'1': 2},
@@ -168,7 +167,7 @@ def calc_all_questions(df):
         all_data[u_id] = sub_data
 
         stop = timeit.default_timer()
-        print('user %d/%d: ' %(ui, len(df['survey_code'].unique())), stop - start)
+        print('user %d/%d: ' %(ui + 1, len(df['survey_code'].unique())), stop - start)
 
     ### save dict with np
     np.save('data/processed_data/all_data_dict.npy', all_data)

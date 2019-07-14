@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing import cpu_count
 from itertools import product
+from scipy.optimize import dual_annealing
 
 
 def fun_to_minimize(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2, h_mix_type = 0):
@@ -43,17 +44,24 @@ def fun_to_minimize_grandH(x_, all_q, all_data, h_mix_type = 0, fal ='C'):
     return np.sqrt(np.mean(err_))
 
 
-def general_minimize(f, args_, x_0, method = 'Powell', bounds = None):
+def general_minimize(f, args_, x_0, method = 'L-BFGS-B', bounds = None):
     min_err = 100.0
     best_result = None
     num_of_minimizations = 1
     x_0r = []
+
+    ### set the bounds of the minimization problem
+    if (bounds is None) and (method == 'L-BFGS-B'):
+        bounds = np.ones([x_0.shape[0], 2])
+        bounds[:, 0] = -1
+
     for i in range(num_of_minimizations):
-        x_0r.append(np.random.randint(2, size=x_0.shape) * 2.0 - 1.0)
-        x_0r.append(np.random.random(size = x_0.shape) * 2.0 - 1.0)
-        x_0_rand = x_0r[np.random.randint(2)]
+        # x_0r.append(np.random.randint(2, size=x_0.shape) * 2.0 - 1.0)
+        # x_0r.append(np.random.random(size = x_0.shape) * 2.0 - 1.0)
+        # x_0_rand = x_0r[np.random.randint(2)]
         # res_temp = minimize(f, x_0_rand, args=args_, method=method, bounds=bounds, options={'disp': False})
         res_temp = minimize(f, x_0, args=args_, method=method, bounds=bounds, options={'disp': False})
+
         if res_temp.fun < min_err:
             min_err = res_temp.fun
             best_result = deepcopy(res_temp)
