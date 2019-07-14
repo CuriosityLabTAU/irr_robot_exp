@@ -5,7 +5,7 @@ For further information go to project --> quantum_model.
 Code needed for pre-processing the data for the irrational robots experiment.
 
 raw data from qualtrics: /data/raw_data/calc_u_suspects - only the 1 (third) question.
-raw data from qualtrics: /data/raw_data/amt4u_calc - this 4 questions (third) randomized/ ~100 participants (total)
+<!--raw data from qualtrics: /data/raw_data/amt4u_calc - this 4 questions (third) randomized/ ~100 participants (total)-->
 
 Order of files --> follow instructions in each file.
 
