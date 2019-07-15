@@ -119,10 +119,11 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
 
         print('=================================================================') # to differentiate between qn
         # x0_i = np.zeros([10]) ### initialize x0 for the first run
-        ### 10 randomizations of x_0
-        n = 10
+        ### n randomizations of x_0
+        n = 30
         np.random.seed(1)
-        x_i = np.random.random(size=(n, n)) * 2.0 - 1.0
+        x_i = np.random.random(size=(n, 10)) * 2.0 - 1.0
+        x_i[0,:] = 0
         for j in range(n):
             print('''===========initilization number %d============''' % j)
             x0_i = x_i[j,:]
@@ -532,11 +533,11 @@ def add_errors(df):
     '''
 
 def main():
-    # calcU = True
-    calcU = False
+    calcU = True
+    # calcU = False
 
-    average_U = True
-    # average_U = False
+    # average_U = True
+    average_U = False
 
     ### How many times to repeat the cross validation
     if calcU:
