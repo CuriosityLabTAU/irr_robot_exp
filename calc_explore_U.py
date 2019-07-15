@@ -33,10 +33,10 @@ questions = {'conj': {'Q2': [0, 1],
                       'Q6': [1, 3],}}
 
 ### todo: how many paramas we have for each model?
-dof_per_mode = {'mean80': 1,
-                'pre'   : 0,
-                'pred_U': 10,
-                'pred_I': 0,
+dof_per_mode = {'mean80': 2,
+                'pre'   : 1,
+                'pred_U': 11,
+                'pred_I': 1,
 }
 
 
@@ -124,6 +124,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         np.random.seed(1)
         x_i = np.random.random(size=(n, n)) * 2.0 - 1.0
         for j in range(n):
+            print('''===========initilization number %d============''' % j)
             x0_i = x_i[j,:]
             for i, (train_index, test_index) in enumerate(kf.split(user_list_train)):
                 print('>>> currently running k_fold analysis to calculate U on question: %s, k = %d/%d.' % (qn, i + 1, k))
@@ -300,6 +301,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
                 np.save('data/predictions/kfold_all_data_dict_%d.npy' % j, all_data)
                 np.save('data/predictions/kfold_UbyQ_%d.npy' % j, q_info)
 
+
     np.save('data/predictions/test_users.npy', test_users)
     df_h.reset_index(inplace=True)
     df_h.to_csv('data/predictions/df_h.csv')
@@ -317,12 +319,15 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
     ================================================================================''')
 
 
-def statistical_diff_h(df_h):
+def statistical_diff_h(df_h,i = ''):
     '''
     Calculate which {h} per qn are statistically significant from zero.
     :param df_h: dataframe with the h per qn per kfold.
+    :param i: when running multiple dataframes, save each with different name.
     :return: df_u90, {h} per qn that are statistically significant from zero.
     '''
+
+
     grouped_df = df_h.groupby('qn')
 
     sig_df = pd.DataFrame()
@@ -350,14 +355,15 @@ def statistical_diff_h(df_h):
         sig_df = sig_df.append(pd.DataFrame(temp))
 
     sig_df.reset_index(inplace=True, drop=True)
-    sig_df.to_csv('data/predictions/sig_h_per_qn.csv', index=0)
+    sig_df.to_csv('data/predictions/sig_h_per_qn%s.csv' % i, index=0)
 
 
-def predict_u90(sig_h):
+def predict_u90(sig_h, i=''):
     '''
     Predict {p_i} per qn based only the {h} that are different from zero.
     :param sig_h: {h} that are statistically significant from zero per qn.
     :param kfold_test_users: dataframe of predictions based on I, U (not different from zero), mean80, pre and uniform.
+    :param i: when running multiple dataframes, save each with different name.
     :return: kfold_prediction: add the predictions of significant U to the dataframe.
     '''
     # a = np.load('data/predictions/test_users.npy')
@@ -461,13 +467,15 @@ def predict_u90(sig_h):
 
             df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
 
-        df_prediction.to_csv('data/predictions/10percent_predictions.csv')  # index=False)
+        df_prediction.to_csv('data/predictions/10percent_predictions%s.csv' % i)  # index=False)
 
 
-def compare_predictions(prediction_df):
+def compare_predictions(prediction_df, s=''):
     '''
     Compare the different models.
+    + calculate the errors (y' - y)^2 between the prediction to real value --> pred_errs.csv
     :param kfold_prediction: dataframe containing all the predictions and real probabilities.
+    :param i: when running multiple dataframes, save each with different name.
     :return: model_compare.csv --> dataframe of comparison between the models.
     '''
 
@@ -492,6 +500,9 @@ def compare_predictions(prediction_df):
 
     df.columns = df.columns.str.replace('p_a_','')
 
+    ### dataframe with the errors
+    df_pred_errs = df.copy()
+
     real_prob = df['real']
 
     df_bic = pd.DataFrame()
@@ -508,15 +519,24 @@ def compare_predictions(prediction_df):
         df_bic.loc[i,'dof'] = p
         print('model = %s | dof = %d | bic = %.2f' % (pred, p, cbic))
 
-    df_bic.to_csv('data/predictions/bic.csv', index=0)
+        df_pred_errs['err_' + pred] = (df[pred] - real_prob) ** 2
 
+    df_bic.to_csv('data/predictions/bic%s.csv'%s, index=0)
+    df_pred_errs.to_csv('data/predictions/pred_errs%s.csv'%s, index=0)
+
+
+def add_errors(df):
+    '''
+    :param df:
+    :return:
+    '''
 
 def main():
-    calcU = True
-    # calcU = False
+    # calcU = True
+    calcU = False
 
-    # average_U = True
-    average_U = False
+    average_U = True
+    # average_U = False
 
     ### How many times to repeat the cross validation
     if calcU:
@@ -524,14 +544,34 @@ def main():
 
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
-        statistical_diff_h(df_h)
 
-        sig_h = pd.read_csv('data/predictions/sig_h_per_qn.csv')
-        predict_u90(sig_h)
+        for i in range(10):
+            fn = '_%d' % i
+            n = int(df_h.shape[0]/10)
+            df_h_ = df_h.iloc[i*n:(i + 1)*n , :]
+            statistical_diff_h(df_h_, fn)
 
-        df_prediction = pd.read_csv('data/predictions/10percent_predictions.csv')  # index=False)
-        compare_predictions(df_prediction)
+            sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv'% fn)
+            predict_u90(sig_h, fn)
+
+            df_prediction = pd.read_csv('data/predictions/10percent_predictions%s.csv'% fn)  # index=False)
+            compare_predictions(df_prediction, fn)
+
 
 
 if __name__ == '__main__':
     main()
+    # ### combining the dataframes
+    # sig_h_tot = pd.DataFrame()
+    # for i in range(10):
+    #     fn = '_%d' % i
+    #     sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
+    #     # sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
+    #     sig_h['run'] = i
+    #
+    #     sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
+    # sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
+    # # sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
+
+
+
