@@ -359,12 +359,13 @@ def statistical_diff_h(df_h,i = ''):
     sig_df.to_csv('data/predictions/sig_h_per_qn%s.csv' % i, index=0)
 
 
-def predict_u90(sig_h, i=''):
+def predict_u90(sig_h, i='', run_train_users = True):
     '''
     Predict {p_i} per qn based only the {h} that are different from zero.
     :param sig_h: {h} that are statistically significant from zero per qn.
     :param kfold_test_users: dataframe of predictions based on I, U (not different from zero), mean80, pre and uniform.
     :param i: when running multiple dataframes, save each with different name.
+    :param run_train_users: True/ False: predict on train (validation users) or on test users.
     :return: kfold_prediction: add the predictions of significant U to the dataframe.
     '''
     # a = np.load('data/predictions/test_users.npy')
@@ -372,7 +373,10 @@ def predict_u90(sig_h, i=''):
     train_users = df_preds['id'].tolist()
     all_data = np.load('data/processed_data/all_data_dict.npy').item()
     all_users = list(all_data.keys())
-    test_users = list(set(all_users) - set(train_users))
+    if run_train_users:
+        test_users = all_users.copy()
+    else:
+        test_users = list(set(all_users) - set(train_users))
 
     ### load the dataframe containing all the data
     raw_df = pd.read_csv('data/processed_data/clear_df.csv')
@@ -533,8 +537,8 @@ def add_errors(df):
     '''
 
 def main():
-    calcU = True
-    # calcU = False
+    # calcU = True
+    calcU = False
 
     # average_U = True
     average_U = False
@@ -546,9 +550,10 @@ def main():
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
 
-        for i in range(10):
+        N = 30
+        for i in range(N):
             fn = '_%d' % i
-            n = int(df_h.shape[0]/10)
+            n = int(df_h.shape[0]/N)
             df_h_ = df_h.iloc[i*n:(i + 1)*n , :]
             statistical_diff_h(df_h_, fn)
 
@@ -558,21 +563,28 @@ def main():
             df_prediction = pd.read_csv('data/predictions/10percent_predictions%s.csv'% fn)  # index=False)
             compare_predictions(df_prediction, fn)
 
-
+    # find the best u on train
+    # check if its better than all other precitions
+    # find the best u on test
+    # check if its the same one as the train
+    # check if its better than all other precitions
+    # calc t-test between all errors, ANOVA + post_hoc
+    df_pred_errs  = pd.read_csv('data/predictions/run_on_test_users/pred_errs_%s.csv'% 6)
+    print()
 
 if __name__ == '__main__':
     main()
     # ### combining the dataframes
     # sig_h_tot = pd.DataFrame()
-    # for i in range(10):
+    # for i in range(30):
     #     fn = '_%d' % i
-    #     sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
-    #     # sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
+    #     # sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
+    #     sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
     #     sig_h['run'] = i
     #
     #     sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
-    # sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
-    # # sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
+    # # sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
+    # sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
 
 
 
