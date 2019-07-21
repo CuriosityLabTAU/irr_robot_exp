@@ -30,7 +30,8 @@ hsc = ['h_a', 'h_b', 'h_c', 'h_d', 'h_ab', 'h_ac', 'h_ad', 'h_bc', 'h_bd', 'h_cd
 questions_fal = {'Q6': 'C'}
 questions = {'conj': {'Q2': [0, 1],
                       'Q4': [2, 3],
-                      'Q6': [1, 3],}}
+                      # 'Q6': [1, 3],}} # suspects
+                      'Q6': [0, 3],}} # art
 
 ### todo: how many paramas we have for each model?
 dof_per_mode = {'mean80': 2,
@@ -540,8 +541,8 @@ def main():
     # calcU = True
     calcU = False
 
-    # average_U = True
-    average_U = False
+    average_U = True
+    # average_U = False
 
     ### How many times to repeat the cross validation
     if calcU:
@@ -557,8 +558,8 @@ def main():
             df_h_ = df_h.iloc[i*n:(i + 1)*n , :]
             statistical_diff_h(df_h_, fn)
 
-            sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv'% fn)
-            predict_u90(sig_h, fn)
+            sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
+            predict_u90(sig_h, fn, run_train_users=False)
 
             df_prediction = pd.read_csv('data/predictions/10percent_predictions%s.csv'% fn)  # index=False)
             compare_predictions(df_prediction, fn)
@@ -569,22 +570,21 @@ def main():
     # check if its the same one as the train
     # check if its better than all other precitions
     # calc t-test between all errors, ANOVA + post_hoc
-    df_pred_errs  = pd.read_csv('data/predictions/run_on_test_users/pred_errs_%s.csv'% 6)
+    # df_pred_errs  = pd.read_csv('data/predictions/run_on_test_users/pred_errs_%s.csv'% 6)
     print()
 
 if __name__ == '__main__':
-    main()
+    #main()
     # ### combining the dataframes
-    # sig_h_tot = pd.DataFrame()
-    # for i in range(30):
-    #     fn = '_%d' % i
-    #     # sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
-    #     sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
-    #     sig_h['run'] = i
-    #
-    #     sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
-    # # sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
-    # sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
+    sig_h_tot = pd.DataFrame()
+    for i in range(30):
+        fn = '_%d' % i
+        #sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
+        sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
+        sig_h['run'] = i
+        sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
+    #sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
+    sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
 
 
 

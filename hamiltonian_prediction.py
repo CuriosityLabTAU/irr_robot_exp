@@ -55,7 +55,7 @@ def get_question_H(psi_0, all_q, p_real, h_a_and_b=None, with_mixing=True, h_mix
         full_h = [None, 'x', None]
         all_P = '1'
         res_temp = general_minimize(fun_to_minimize, args_=(p_real['B'], psi_0, full_h, all_q, all_P, 4, h_mix_type),
-                                    x_0=np.array([0.0]))
+                                                                                                                                                                                                                                                                                                                x_0=np.array([0.0]))
         h_b = res_temp.x.flatten()[0]
         # print('error of minimization h_b: ', res_temp.fun)
 

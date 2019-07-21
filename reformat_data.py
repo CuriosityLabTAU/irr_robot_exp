@@ -10,26 +10,38 @@ import timeit
 ### questions organizer dictionary
 questions = {'conj': {'Q2': [0, 1],
                       'Q4': [2, 3],
-                      'Q6': [1, 3]},
-             'trap': {'Q8': 2},}
+                      'Q6': [0, 3]}, # art
+                      # 'Q6': [1, 3]}, #suspects
+             'trap': {'Q8': 3},} # suspects = 2, art = 3
 questions_fal = {'Q2': 1,
                  'Q4': 1,
                  'Q6': 1,}
 
 
 ### which options correspond to which qubits
+# questions_options = {
+#    'Q2' : {'pa':{'0': 1},
+#            'pb':{'1': 2},
+#            'pab':{'01': 3}},
+#    'Q4': {'pa':{'2': 1},
+#           'pb':{'3': 2},
+#           'pab':{'23': 3}},
+#    'Q6' : {'pa':{'1': 1},
+#            'pb':{'3': 2},
+#            'pab':{'13': 3}},
+#}
+
 questions_options = {
     'Q2' : {'pa':{'0': 1},
-            'pb':{'1': 2},
-            'pab':{'01': 3}},
+            'pb':{'1': 4},
+            'pab':{'01': 2}},
     'Q4': {'pa':{'2': 1},
            'pb':{'3': 2},
            'pab':{'23': 3}},
-    'Q6' : {'pa':{'1': 1},
-            'pb':{'3': 2},
-            'pab':{'13': 3}},
+    'Q6': {'pa': {'0': 2},
+           'pb': {'3': 1},
+           'pab': {'03': 3}},
 }
-
 
 ### init {probs} state in each question
 prob_q = {'0' : 0, '1' : 0, '2' : 0, '3' : 0}
@@ -317,7 +329,8 @@ def main():
     calc_errs = False
 
     if reformat:
-        raw_df = reformat_data_from_qualtrics('data/raw_data/calc_u_suspects.csv')
+        # raw_df = reformat_data_from_qualtrics('data/raw_data/calc_u_suspects.csv')
+        raw_df = reformat_data_from_qualtrics('data/raw_data/calc_u_art.csv')
     else:
         raw_df = pd.read_csv('data/processed_data/clear_df.csv')
 
