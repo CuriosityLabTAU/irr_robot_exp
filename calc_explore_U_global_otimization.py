@@ -15,6 +15,9 @@ from itertools import combinations
 
 from RegscorePy import bic # https://pypi.org/project/RegscorePy/
 from sklearn.metrics import mean_squared_error
+from skopt import gp_minimize
+
+global train_q_data_qn
 
 # psi_dyn = np.dot(U, psi_0)
 
@@ -72,9 +75,42 @@ def sub_sample_data(all_data, data_qn, df, users):
     return data_qn
 
 
+def fun_to_minimize_grandH_skopt(x_):
+    global train_q_data_qn
+    ### suspects
+    # all_q = [1,3]
+    ### art
+    all_q = [0,3]
+    all_data = train_q_data_qn.copy()
+    fal = 'C'
+    grand_U = U_from_H(grandH_from_x(x_, fal))
+
+    err_ = []
+    for data in all_data.values():
+        psi_0 = np.dot(grand_U, data[1]['psi'])
+
+        h_a = data[2]['h_q'][str(all_q[0])]
+        p_a_calc = get_general_p(full_h=[h_a, None, None],
+                                 all_q=all_q,
+                                 all_P='0', psi_0=psi_0, n_qubits=4)
+        p_a = data[2]['p_a']
+        err_.append((p_a_calc - p_a) ** 2)
+
+        h_b = data[2]['h_q'][str(all_q[1])]
+        p_b_calc = get_general_p(full_h=[None, h_b, None],
+                                 all_q=all_q,
+                                 all_P='1', psi_0=psi_0, n_qubits=4,)
+        p_b = data[2]['p_b']
+        err_.append((p_b_calc - p_b) ** 2)
+
+    return np.sqrt(np.mean(err_))
+
+
+
+
 def calculate_all_data_cross_val_kfold(with_mixing=True):
     '''cross validation only for the third question'''
-    global hs
+    global hs, train_q_data_qn
     ### load the dataframe containing all the data
     raw_df = pd.read_csv('data/processed_data/clear_df.csv')
     raw_df.rename({'survey_code':'userID'},axis = 1, inplace=True)
@@ -91,6 +127,8 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
     ### test_set
     test_users = {}
 
+    ### instead of run number
+    i = 0
 
     # third question
     ### creating a dataframe to save all the predictions error --> for specific question group by 'qn' --> agg('mean')
@@ -113,195 +151,197 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         ### get which qubits and the fallacy of the question
         all_q, fal = q_qubits_fal(qn)
 
-        ### split the users to test and train using kfold - each user will be one time in test
-        k = user_list_train.__len__() # 10
-        kf = KFold(n_splits=k)
-        kf.get_n_splits(user_list_train)
-
         print('=================================================================') # to differentiate between qn
         # x0_i = np.zeros([10]) ### initialize x0 for the first run
         ### n randomizations of x_0
-        n = 30
+        n = 1
         np.random.seed(1)
         x_i = np.random.random(size=(n, 10)) * 2.0 - 1.0
         x_i[0,:] = 0
-        for j in range(n):
-            print('''===========initilization number %d============''' % j)
-            x0_i = x_i[j,:]
-            for i, (train_index, test_index) in enumerate(kf.split(user_list_train)):
-                print('>>> currently running k_fold analysis to calculate U on question: %s, k = %d/%d.' % (qn, i + 1, k))
-                q_info[qn] = {}
-                q_info[qn]['U_params_h'] = {}
-                q_info[qn]['H_ols'] = {}
-                train_users, test_users = user_list_train[train_index], user_list_train[test_index]
-                train_q_data_qn = {}
-                test_q_data_qn = {}
-    
-                train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
-                test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
-    
-                ### check
-                # train_q_data_qn = train_q_data_qn[11685720]
-                # test_q_data_qn[11685720] = train_q_data_qn.copy()
-                # train_q_data_qn = test_q_data_qn.copy()
-    
-                ### taking the mean of the probabilities of the 80 %
-                p_a_80 = []
-                p_b_80 = []
-                p_ab_80 = []
-                for u_id, tu in train_q_data_qn.items():
-                    p_a_80.append(tu[2]['p_a'][0])
-                    p_b_80.append(tu[2]['p_b'][0])
-                    p_ab_80.append(tu[2]['p_ab'][0])
-                p_a_80 = np.array(p_a_80).mean()
-                p_b_80 = np.array(p_b_80).mean()
-                p_ab_80 = np.array(p_ab_80).mean()
-    
-                if len(train_q_data_qn) > 0:
-                    ### question qubits (-1) because if the range inside of some function
-                    h_names = ['0', '1', '2', '3', '01', '23', str(all_q[0]) + str(all_q[1])]
-    
-                    # find U for each question #
-                    start = time.clock()
-                    # time.perf_counter()
-    
-    
-                    ### set bounds to all parameters
-                    bounds = np.ones([10, 2])
-                    bounds[:, 0] = -1
-    
-                    res_temp = general_minimize(fun_to_minimize_grandH, args_=(all_q, train_q_data_qn, 0, fal),
-                                                x_0=x0_i, method='L-BFGS-B', bounds=bounds) #, look at global optimizations at scipy.optimize
-                                                # x_0=np.zeros([10]), method='Powell', bounds=bounds) #L-BFGS-B, look at global optimizations at scipy.optimize
-                                                                  # method='annealing'
-                    ### update x0 for the next run
-                    x0_i = np.copy(res_temp.x)
-                    print(x0_i)
-    
-                    end = time.clock()
-                    print('question %s, U optimization took %.2f s' % (qn, end - start))
-    
-                    ### saving all 10 {h_i} for this k fold run
-                    q_info[qn]['U_params_h'][i] = [res_temp.x]
-                    df_h = df_h.append(pd.DataFrame(
-                        columns=['qn', 'k_fold'] + hsc,
-                        data = [[qn, i] + list(res_temp.x)]))
-    
-                    ### calculate U from current {h_i}
-                    q_info[qn]['U'] = U_from_H(grandH_from_x(res_temp.x, fal))
-    
-                    # calculate H_AB model based on MLR/ ANN to predict p_ab
-                    print('calculating h_ab for question %s to building a model from the k_fold' %(qn))
-                    H_dict = {}
-                    for u_id, tu in test_q_data_qn.items():
-                        psi_0 = np.dot(q_info[qn]['U'], tu[1]['psi'])
-    
-                        p_real, d = sub_q_p(raw_df, u_id, 2)
-                        sub_data_q = get_question_H(psi_0, all_q, p_real,
-                                                    [tu[1]['h_q'][str(all_q[0])],
-                                                     tu[1]['h_q'][str(all_q[1])]],
-                                                    with_mixing, fallacy_type=fal)
-                        tu[2]['h_q'] = tu[1]['h_q'].copy()
-                        tu[2]['h_q'][str(all_q[0]) + str(all_q[1])] = sub_data_q['h_ab']
-                        H_dict[u_id] = []
-                        for hs in h_names:
-                            H_dict[u_id].append(tu[2]['h_q'][hs])
-    
-                    df_H = pd.DataFrame.from_dict(data=H_dict, orient='index')
-                    df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD', 'target']
-    
-                    start = time.clock()
-                    mtd = 'lr'  # 'ANN'
-                    print('creating model for predicting h_ij on test set using ' + mtd + ' method')
-                    est = pred_h_ij(df_H, method = mtd)
-                    end = time.clock()
-                    print('question %s, h_ij prediction took %.2f s' % (qn, end - start))
-    
-                    q_info[qn]['H_ols'][i] = est
-    
-                ### TODO: add this controls.
-                ### linear and logistic regression on for predicting the third question probs (real data).
-                ### from all the (probs) prediction --> irr: 0/1 (predicted data).
-                ### logistic regression for predicting the third question irr (real data).
-    
-    
-                ### predict on test users
-                print('calculating predictions on test data')
-                U = q_info[qn]['U']
-                for u_id, tu in test_q_data_qn.items():
-                    temp = {}
-                    temp['id'] = [u_id]
-                    temp['qn'] = [qn]
-    
-                    temp['q1'] = [all_q[0]]
-                    temp['q2'] = [all_q[1]]
-    
-                    q1 = 'p_' + qubits_dict[temp['q1'][0]]
-                    q2 = 'p_' + qubits_dict[temp['q2'][0]]
-                    q12 = 'p_' + qubits_dict[temp['q1'][0]] + qubits_dict[temp['q2'][0]]
-    
-                    ### psi after the 2nd question
-                    psi_0 = tu[1]['psi']
-    
-                    ### propogate psi with the U of the 3rd question
-                    psi_dyn = np.dot(U, psi_0)
-    
-                    ### probabilities from the 1st and 2nd question
-                    temp['p_a'] = [tu[0]['p_a'][0]]
-                    temp['p_b'] = [tu[0]['p_b'][0]]
-                    temp['p_c'] = [tu[1]['p_a'][0]]
-                    temp['p_d'] = [tu[1]['p_b'][0]]
-    
-                    ### probs of the current question taken from previous questions
-                    temp['p_a_pre'] = temp[q1]
-                    temp['p_b_pre'] = temp[q2]
-    
-                    ### real probabilities in the third question
-                    temp['p_a_real'] = [tu[2]['p_a'][0]]
-                    temp['p_b_real'] = [tu[2]['p_b'][0]]
-                    temp['p_ab_real'] = [tu[2]['p_ab'][0]]
-    
-                    ### predicted probabilities with U
-                    h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
-                    h_b = [None, tu[1]['h_q'][str(int(temp['q2'][0]))], None]
-    
-                    temp['p_a_pred_U'] = [get_general_p(h_a, all_q, '0', psi_dyn, n_qubits=4).flatten()[0]]
-                    temp['p_b_pred_U'] = [get_general_p(h_b, all_q, '1', psi_dyn, n_qubits=4).flatten()[0]]
-    
-                    ### predicted probabilities with I
-                    temp['p_a_pred_I']  = [get_general_p(h_a, all_q, '0', psi_0, n_qubits=4).flatten()[0]]
-                    temp['p_b_pred_I']  = [get_general_p(h_b, all_q, '1', psi_0, n_qubits=4).flatten()[0]]
-    
-    
-                    ### predicted probabilities with mean from fold %
-                    temp['p_a_mean80'] = [p_a_80]
-                    temp['p_b_mean80'] = [p_b_80]
-                    temp['p_ab_mean80'] = [p_ab_80]
-    
-                    # use question H to generate h_ab
-                    h_names_gen = ['0', '1', '2', '3', '01', '23']
-                    if with_mixing:
-                        all_h = {'one': []}
-                        for hs in h_names_gen:
-                            all_h['one'].append(tu[2]['h_q'][hs])
-                        df_H = pd.DataFrame.from_dict(data=all_h, orient='index')
-                        df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD']
-                        try:
-                            h_ab = q_info[qn]['H_ols'][i].predict(df_H).values[0]
-                        except:
-                            h_ab = q_info[qn]['H_ols'][i].predict(df_H)[0]
-                    else:
-                        h_ab = 0.0
-    
-                    # full_h = [tu['h_q'][str(int(temp['q1'][0]))], tu['h_q'][str(int(temp['q2'][0]))], h_ab]
-                    full_h = [None, None, h_ab]
-                    temp['p_ab_pred_ols_U']    = [get_general_p(full_h, all_q, fal, psi_dyn, n_qubits=4).flatten()[0]]
-                    temp['p_ab_pred_ols_I'] = [get_general_p(full_h, all_q, fal, psi_0, n_qubits=4).flatten()[0]]
-    
-                    df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
-    
-                np.save('data/predictions/kfold_all_data_dict_%d.npy' % j, all_data)
-                np.save('data/predictions/kfold_UbyQ_%d.npy' % j, q_info)
+        q_info[qn] = {}
+        q_info[qn]['U_params_h'] = {}
+        q_info[qn]['H_ols'] = {}
+        train_users, test_users = user_list_train.copy(), user_list_test.copy()
+        train_q_data_qn = {}
+        test_q_data_qn = {}
+
+        train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
+        test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
+
+        ### check
+        # train_q_data_qn = train_q_data_qn[11685720]
+        # test_q_data_qn[11685720] = train_q_data_qn.copy()
+        # train_q_data_qn = test_q_data_qn.copy()
+
+        ### taking the mean of the probabilities of the 80 %
+        p_a_80 = []
+        p_b_80 = []
+        p_ab_80 = []
+        for u_id, tu in train_q_data_qn.items():
+            p_a_80.append(tu[2]['p_a'][0])
+            p_b_80.append(tu[2]['p_b'][0])
+            p_ab_80.append(tu[2]['p_ab'][0])
+        p_a_80 = np.array(p_a_80).mean()
+        p_b_80 = np.array(p_b_80).mean()
+        p_ab_80 = np.array(p_ab_80).mean()
+
+        if len(train_q_data_qn) > 0:
+            ### question qubits (-1) because if the range inside of some function
+            h_names = ['0', '1', '2', '3', '01', '23', str(all_q[0]) + str(all_q[1])]
+
+            # find U for each question #
+            start = time.clock()
+            # time.perf_counter()
+
+
+            ### set bounds to all parameters
+            bounds = np.ones([10, 2])
+            bounds[:, 0] = -1
+
+            # res_temp = general_minimize(fun_to_minimize_grandH, args_=(all_q, train_q_data_qn, 0, fal),
+            #                             x_0=x0_i, method='L-BFGS-B', bounds=bounds) #, look at global optimizations at scipy.optimize
+            #                             # x_0=np.zeros([10]), method='Powell', bounds=bounds) #L-BFGS-B, look at global optimizations at scipy.optimize
+            #                                               # method='annealing'
+
+            res_temp = gp_minimize(fun_to_minimize_grandH_skopt,  # the function to minimize
+                              dimensions=bounds,  # the bounds on each dimension of x
+                              acq_func="EI",  # the acquisition function
+                              n_calls=100,  # the number of evaluations of f
+                              n_random_starts=10,  # the number of random initialization points
+                              # noise=0.1 ** 2,  # the noise level (optional)
+                              random_state=123)  # the random seed
+
+            print(res_temp)
+
+            ### update x0 for the next run
+            x0_i = np.copy(res_temp.x)
+            print(x0_i)
+            print(res_temp.fun)
+            input()
+            end = time.clock()
+            print('question %s, U optimization took %.2f s' % (qn, end - start))
+
+            ### saving all 10 {h_i} for this k fold run
+            q_info[qn]['U_params_h'][i] = [res_temp.x]
+            df_h = df_h.append(pd.DataFrame(
+                columns=['qn', 'k_fold'] + hsc,
+                data = [[qn, i] + list(res_temp.x)]))
+
+            ### calculate U from current {h_i}
+            q_info[qn]['U'] = U_from_H(grandH_from_x(res_temp.x, fal))
+
+            # calculate H_AB model based on MLR/ ANN to predict p_ab
+            print('calculating h_ab for question %s to building a model from the k_fold' %(qn))
+            H_dict = {}
+            for u_id, tu in test_q_data_qn.items():
+                psi_0 = np.dot(q_info[qn]['U'], tu[1]['psi'])
+
+                p_real, d = sub_q_p(raw_df, u_id, 2)
+                sub_data_q = get_question_H(psi_0, all_q, p_real,
+                                            [tu[1]['h_q'][str(all_q[0])],
+                                             tu[1]['h_q'][str(all_q[1])]],
+                                            with_mixing, fallacy_type=fal)
+                tu[2]['h_q'] = tu[1]['h_q'].copy()
+                tu[2]['h_q'][str(all_q[0]) + str(all_q[1])] = sub_data_q['h_ab']
+                H_dict[u_id] = []
+                for hs in h_names:
+                    H_dict[u_id].append(tu[2]['h_q'][hs])
+
+            df_H = pd.DataFrame.from_dict(data=H_dict, orient='index')
+            df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD', 'target']
+
+            start = time.clock()
+            mtd = 'lr'  # 'ANN'
+            print('creating model for predicting h_ij on test set using ' + mtd + ' method')
+            est = pred_h_ij(df_H, method = mtd)
+            end = time.clock()
+            print('question %s, h_ij prediction took %.2f s' % (qn, end - start))
+
+            q_info[qn]['H_ols'][i] = est
+
+        ### TODO: add this controls.
+        ### linear and logistic regression on for predicting the third question probs (real data).
+        ### from all the (probs) prediction --> irr: 0/1 (predicted data).
+        ### logistic regression for predicting the third question irr (real data).
+
+
+        ### predict on test users
+        print('calculating predictions on test data')
+        U = q_info[qn]['U']
+        for u_id, tu in test_q_data_qn.items():
+            temp = {}
+            temp['id'] = [u_id]
+            temp['qn'] = [qn]
+
+            temp['q1'] = [all_q[0]]
+            temp['q2'] = [all_q[1]]
+
+            q1 = 'p_' + qubits_dict[temp['q1'][0]]
+            q2 = 'p_' + qubits_dict[temp['q2'][0]]
+            q12 = 'p_' + qubits_dict[temp['q1'][0]] + qubits_dict[temp['q2'][0]]
+
+            ### psi after the 2nd question
+            psi_0 = tu[1]['psi']
+
+            ### propogate psi with the U of the 3rd question
+            psi_dyn = np.dot(U, psi_0)
+
+            ### probabilities from the 1st and 2nd question
+            temp['p_a'] = [tu[0]['p_a'][0]]
+            temp['p_b'] = [tu[0]['p_b'][0]]
+            temp['p_c'] = [tu[1]['p_a'][0]]
+            temp['p_d'] = [tu[1]['p_b'][0]]
+
+            ### probs of the current question taken from previous questions
+            temp['p_a_pre'] = temp[q1]
+            temp['p_b_pre'] = temp[q2]
+
+            ### real probabilities in the third question
+            temp['p_a_real'] = [tu[2]['p_a'][0]]
+            temp['p_b_real'] = [tu[2]['p_b'][0]]
+            temp['p_ab_real'] = [tu[2]['p_ab'][0]]
+
+            ### predicted probabilities with U
+            h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
+            h_b = [None, tu[1]['h_q'][str(int(temp['q2'][0]))], None]
+
+            temp['p_a_pred_U'] = [get_general_p(h_a, all_q, '0', psi_dyn, n_qubits=4).flatten()[0]]
+            temp['p_b_pred_U'] = [get_general_p(h_b, all_q, '1', psi_dyn, n_qubits=4).flatten()[0]]
+
+            ### predicted probabilities with I
+            temp['p_a_pred_I']  = [get_general_p(h_a, all_q, '0', psi_0, n_qubits=4).flatten()[0]]
+            temp['p_b_pred_I']  = [get_general_p(h_b, all_q, '1', psi_0, n_qubits=4).flatten()[0]]
+
+
+            ### predicted probabilities with mean from fold %
+            temp['p_a_mean80'] = [p_a_80]
+            temp['p_b_mean80'] = [p_b_80]
+            temp['p_ab_mean80'] = [p_ab_80]
+
+            # use question H to generate h_ab
+            h_names_gen = ['0', '1', '2', '3', '01', '23']
+            if with_mixing:
+                all_h = {'one': []}
+                for hs in h_names_gen:
+                    all_h['one'].append(tu[2]['h_q'][hs])
+                df_H = pd.DataFrame.from_dict(data=all_h, orient='index')
+                df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD']
+                try:
+                    h_ab = q_info[qn]['H_ols'][i].predict(df_H).values[0]
+                except:
+                    h_ab = q_info[qn]['H_ols'][i].predict(df_H)[0]
+            else:
+                h_ab = 0.0
+
+            # full_h = [tu['h_q'][str(int(temp['q1'][0]))], tu['h_q'][str(int(temp['q2'][0]))], h_ab]
+            full_h = [None, None, h_ab]
+            temp['p_ab_pred_ols_U']    = [get_general_p(full_h, all_q, fal, psi_dyn, n_qubits=4).flatten()[0]]
+            temp['p_ab_pred_ols_I'] = [get_general_p(full_h, all_q, fal, psi_0, n_qubits=4).flatten()[0]]
+
+            df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
+
+        np.save('data/predictions/kfold_all_data_dict_nokfold.npy', all_data)
+        np.save('data/predictions/kfold_UbyQ_nokfold.npy', q_info)
 
 
     np.save('data/predictions/test_users.npy', test_users)
@@ -319,7 +359,6 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
     || Dictionary of test users (per qn): saved to data/test_users.npy            || 
     || Supplementary files were saved to: kfold_all_data_dict.npy, kfold_UbyQ.npy || 
     ================================================================================''')
-
 
 def statistical_diff_h(df_h,i = ''):
     '''
@@ -343,8 +382,7 @@ def statistical_diff_h(df_h,i = ''):
             ===============
             qn = %s, h = %s
             ''' % (q, h))
-            # s, p, is_t = ttest_or_mannwhitney(grouped_df.get_group(q)[h], np.zeros(grouped_df.get_group(q)[h].shape[0]))
-            s, p = stats.ttest_1samp(grouped_df.get_group(q)[h].values, 0)
+            s, p, is_t = ttest_or_mannwhitney(grouped_df.get_group(q)[h], np.zeros(grouped_df.get_group(q)[h].shape[0]))
             # print('''
             # s = %.2f, p = %.2f, is t_test = %s''' % (s, p, str(is_t)))
             if p < 0.05:
@@ -391,11 +429,11 @@ def predict_u90(sig_h, i='', run_train_users = True):
     test_preds = pd.DataFrame(raw_df.loc[test_users, 'q3'])
     train_preds = pd.DataFrame(raw_df.loc[train_users, 'q3'])
 
-    # test_q_data_qn = {}
-    # train_q_data_qn = {}
-    #
-    # test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
-    # train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
+    test_q_data_qn = {}
+    train_q_data_qn = {}
+
+    test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
+    train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
 
     sig_h.set_index('qn', inplace=True)
 
@@ -552,7 +590,8 @@ def main():
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
 
-        N = 30
+        # N = 30
+        N = 1
         for i in range(N):
             fn = '_%d' % i
             n = int(df_h.shape[0]/N)
@@ -577,12 +616,15 @@ def main():
 if __name__ == '__main__':
     main()
     ### combining the dataframes
-    sig_h_tot = pd.DataFrame()
-    for i in range(30):
-        fn = '_%d' % i
-        #sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
-        sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
-        sig_h['run'] = i
-        sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
-    #sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
-    sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
+    # sig_h_tot = pd.DataFrame()
+    # for i in range(30):
+    #     fn = '_%d' % i
+    #     #sig_h = pd.read_csv('data/predictions/sig_h_per_qn%s.csv' % fn)
+    #     sig_h = pd.read_csv('data/predictions/bic%s.csv' % fn)
+    #     sig_h['run'] = i
+    #     sig_h_tot = pd.concat((sig_h_tot,sig_h), axis = 0)
+    # #sig_h_tot.to_csv('data/predictions/sig_h_per_qn_tot.csv',index=0)
+    # sig_h_tot.to_csv('data/predictions/bic_tot.csv', index=0)
+
+
+
