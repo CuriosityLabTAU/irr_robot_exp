@@ -380,9 +380,10 @@ def statistical_diff_h(df_h,i = ''):
             temp[h] = [0]
             print('''
             ===============
-            qn = %s, h = %s
+            qn = %s, h = %s                                                                                                                                             skopt
             ''' % (q, h))
-            s, p, is_t = ttest_or_mannwhitney(grouped_df.get_group(q)[h], np.zeros(grouped_df.get_group(q)[h].shape[0]))
+            s, p = stats.ttest_1samp(grouped_df.get_group(q)[h].values, 0)
+            #s, p, is_t = ttest_or_mannwhitney(grouped_df.get_group(q)[h], np.zeros(grouped_df.get_group(q)[h].shape[0]))
             # print('''
             # s = %.2f, p = %.2f, is t_test = %s''' % (s, p, str(is_t)))
             if p < 0.05:
@@ -577,11 +578,11 @@ def add_errors(df):
     '''
 
 def main():
-    # calcU = True
-    calcU = False
+    calcU = True
+    #calcU = False
 
-    average_U = True
-    # average_U = False
+    #average_U = True
+    average_U = False
 
     ### How many times to repeat the cross validation
     if calcU:
