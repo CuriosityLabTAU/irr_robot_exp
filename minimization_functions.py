@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing import cpu_count
 from itertools import product
-from scipy.optimize import dual_annealing
+# from scipy.optimize import dual_annealing
 
 
 def fun_to_minimize(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2, h_mix_type = 0):

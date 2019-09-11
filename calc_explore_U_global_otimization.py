@@ -16,6 +16,7 @@ from itertools import combinations
 from RegscorePy import bic # https://pypi.org/project/RegscorePy/
 from sklearn.metrics import mean_squared_error
 from skopt import gp_minimize
+import nevergrad as ng
 
 global train_q_data_qn
 
@@ -106,6 +107,36 @@ def fun_to_minimize_grandH_skopt(x_):
     return np.sqrt(np.mean(err_))
 
 
+def fun_to_minimize_grandH_nevergrad(x0, x1,x2,x3,x4,x5,x6,x7,x8,x9):
+    global train_q_data_qn
+    x_ = [x0, x1,x2,x3,x4,x5,x6,x7,x8,x9]
+    ### suspects
+    # all_q = [1,3]
+    ### art
+    all_q = [0,3]
+    all_data = train_q_data_qn.copy()
+    fal = 'C'
+    grand_U = U_from_H(grandH_from_x(x_, fal))
+
+    err_ = []
+    for data in all_data.values():
+        psi_0 = np.dot(grand_U, data[1]['psi'])
+
+        h_a = data[2]['h_q'][str(all_q[0])]
+        p_a_calc = get_general_p(full_h=[h_a, None, None],
+                                 all_q=all_q,
+                                 all_P='0', psi_0=psi_0, n_qubits=4)
+        p_a = data[2]['p_a']
+        err_.append((p_a_calc - p_a) ** 2)
+
+        h_b = data[2]['h_q'][str(all_q[1])]
+        p_b_calc = get_general_p(full_h=[None, h_b, None],
+                                 all_q=all_q,
+                                 all_P='1', psi_0=psi_0, n_qubits=4,)
+        p_b = data[2]['p_b']
+        err_.append((p_b_calc - p_b) ** 2)
+
+    return np.sqrt(np.mean(err_))
 
 
 def calculate_all_data_cross_val_kfold(with_mixing=True):
@@ -141,7 +172,8 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
         # user_list = list(user_list)
         user_list = np.array(user_list)
 
-        user_list_train, user_list_test = train_test_split(user_list, test_size=.33, random_state=1)
+        test_pprecent = 30./len(user_list)
+        user_list_train, user_list_test = train_test_split(user_list, test_size=test_pprecent , random_state=1)
         ### TODO: be careful with this!!!
         try:
             test_users[qn] = user_list_test.copy()
@@ -203,32 +235,46 @@ def calculate_all_data_cross_val_kfold(with_mixing=True):
             #                             # x_0=np.zeros([10]), method='Powell', bounds=bounds) #L-BFGS-B, look at global optimizations at scipy.optimize
             #                                               # method='annealing'
 
-            res_temp = gp_minimize(fun_to_minimize_grandH_skopt,  # the function to minimize
-                              dimensions=bounds,  # the bounds on each dimension of x
-                              acq_func="EI",  # the acquisition function
-                              n_calls=100,  # the number of evaluations of f
-                              n_random_starts=10,  # the number of random initialization points
-                              # noise=0.1 ** 2,  # the noise level (optional)
-                              random_state=123)  # the random seed
+            # res_temp = gp_minimize(fun_to_minimize_grandH_skopt,  # the function to minimize
+            #                   dimensions=bounds,  # the bounds on each dimension of x
+            #                   acq_func="EI",  # the acquisition function
+            #                   n_calls=100,  # the number of evaluations of f
+            #                   n_random_starts=10,  # the number of random initialization points
+            #                   # noise=0.1 ** 2,  # the noise level (optional)
+            #                   random_state=123)  # the random seed
+
+
+            instrum = ng.Instrumentation(ng.var.Array(10,1).bounded(-1.,1.))
+            # optimizer = ng.optimizers.OnePlusOne(instrumentation=instrum, budget=100)
+            # optimizer = ng.optimizers.PSO(instrumentation=instrum, budget=500) ### really good
+            # optimizer = ng.optimizers.PSO(instrumentation=instrum, budget=400, num_workers=20)
+            optimizer = ng.optimizers.BO(instrumentation=instrum, budget=200)
+            # optimizer = ng.optimizers.TwoPointsDE(instrumentation=instrum, budget=200)
+            # optimizer = ng.optimizers.PSOParticle(x=instrum)
+            recommendation = optimizer.minimize(fun_to_minimize_grandH_skopt)
+
+            # from concurrent import futures
+            # optimizer = ng.optimizers.OnePlusOne(instrumentation=instrum, budget=100, num_workers=5)
+            # optimizer = ng.optimizers.PSO(instrumentation=instrum, budget=100, num_workers=5)
+            # with futures.ProcessPoolExecutor(max_workers=optimizer.num_workers) as executor:
+            #     recommendation = optimizer.minimize(fun_to_minimize_grandH_skopt, executor=executor, batch_mode=False)
+
+            print(recommendation.args)
+            res_temp = recommendation.args[0].flatten()
 
             print(res_temp)
 
-            ### update x0 for the next run
-            x0_i = np.copy(res_temp.x)
-            print(x0_i)
-            print(res_temp.fun)
-            input()
             end = time.clock()
             print('question %s, U optimization took %.2f s' % (qn, end - start))
 
             ### saving all 10 {h_i} for this k fold run
-            q_info[qn]['U_params_h'][i] = [res_temp.x]
+            q_info[qn]['U_params_h'][i] = [res_temp]
             df_h = df_h.append(pd.DataFrame(
                 columns=['qn', 'k_fold'] + hsc,
-                data = [[qn, i] + list(res_temp.x)]))
+                data = [[qn, i] + list(res_temp)]))
 
             ### calculate U from current {h_i}
-            q_info[qn]['U'] = U_from_H(grandH_from_x(res_temp.x, fal))
+            q_info[qn]['U'] = U_from_H(grandH_from_x(res_temp, fal))
 
             # calculate H_AB model based on MLR/ ANN to predict p_ab
             print('calculating h_ab for question %s to building a model from the k_fold' %(qn))
@@ -380,14 +426,15 @@ def statistical_diff_h(df_h,i = ''):
             temp[h] = [0]
             print('''
             ===============
-            qn = %s, h = %s                                                                                                                                             skopt
+            qn = %s, h = %s
             ''' % (q, h))
             s, p = stats.ttest_1samp(grouped_df.get_group(q)[h].values, 0)
             #s, p, is_t = ttest_or_mannwhitney(grouped_df.get_group(q)[h], np.zeros(grouped_df.get_group(q)[h].shape[0]))
             # print('''
             # s = %.2f, p = %.2f, is t_test = %s''' % (s, p, str(is_t)))
-            if p < 0.05:
-                temp[h] = [grouped_df.get_group(q)[h].mean()]
+            # if p < 0.05:
+            # temp[h] = [grouped_df.get_group(q)[h].mean()]
+            temp[h] = [grouped_df.get_group(q)[h]]
 
         ### which qubits are asked in the question
         if q in questions['conj'].keys():
@@ -579,9 +626,9 @@ def add_errors(df):
 
 def main():
     calcU = True
-    #calcU = False
+    # calcU = False
 
-    #average_U = True
+    # average_U = True
     average_U = False
 
     ### How many times to repeat the cross validation
