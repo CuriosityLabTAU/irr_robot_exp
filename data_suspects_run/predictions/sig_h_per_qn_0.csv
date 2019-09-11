@@ -1,0 +1,12 @@
+qn,h_a,h_b,h_c,h_d,h_ab,h_ac,h_ad,h_bc,h_bd,h_cd,qubits
+Q6,"0    1.0
+Name: h_a, dtype: float64","0    1.0
+Name: h_b, dtype: float64","0    1.0
+Name: h_c, dtype: float64","0    1.0
+Name: h_d, dtype: float64","0    1.0
+Name: h_ab, dtype: float64","0    1.0
+Name: h_ac, dtype: float64","0   -1.0
+Name: h_ad, dtype: float64","0    1.0
+Name: h_bc, dtype: float64","0   -1.0
+Name: h_bd, dtype: float64","0    1.0
+Name: h_cd, dtype: float64","[0, 3]"
