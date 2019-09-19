@@ -7,6 +7,41 @@ from itertools import product
 # from scipy.optimize import dual_annealing
 
 
+def fun_to_minimize_v1(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2, h_mix_type = 0):
+    # all_h = ['x', h_b, h_ab], [h_a, None, h_ab], [h_a, h_b, None]
+    # all_q = [q1, q2] = [0,3] --> AD
+    # all_P = '0' --> P_q1, '1' --> P_q2, 'C' --> P_q1 * P_q2, 'D' --> P_q1 + P_q2 - P_q1 * P_q2
+
+    full_h = [h_[0] if type(v) is type('x') else v for v in all_h] # replace the None with the minimization parameter
+    p_ = get_general_p(full_h, all_q, all_P, psi_0, n_qubits, h_mix_type = h_mix_type)
+    err_ = rmse(p_, real_p_)
+    return err_, p_
+
+def fun_to_minimize_all(h_all=[h_a, h_b, h_c, h_d, gamma_], psi_0):
+    _, p_a = fun_to_minimize_v1(h_all[0], psi_0)
+    _, p_b = fun_to_minimize_v1(h_all[1], psi_0)
+    _, p_ab = fun_to_minimize_v1(h_all[-1], psi_0) # gamma_
+
+    # propagate psi
+    H_ = compose_H([h_a, h_b, gamma_])
+    psi_1 = get_psi(H_, psi_0)
+
+    _, p_c = fun_to_minimize_v1(h_all[2], psi_1)
+    _, p_d = fun_to_minimize_v1(h_all[3], psi_1)
+    _, p_cd = fun_to_minimize_v1(h_all[-1], psi_1) # gamma_
+
+    err_ = rmse([p_a, p_b, p_ab, p_c, p_d, p_cd], real_p)
+    return err_
+
+
+
+
+
+
+
+
+
+
 def fun_to_minimize(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2, h_mix_type = 0):
     # all_h = ['x', h_b, h_ab], [h_a, None, h_ab], [h_a, h_b, None]
     # all_q = [q1, q2] = [0,3] --> AD
