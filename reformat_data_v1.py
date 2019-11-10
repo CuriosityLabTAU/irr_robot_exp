@@ -169,7 +169,7 @@ def calc_first2questions(df):
         sub_data['pred_probs3'] = [p_a, p_d, p_ad]
 
         ### errors from pre
-        # sub_data['pre_errors'] = [rmse(p_a, p_real['A']), rmse(p_d, p_real['D'])]
+        sub_data['pre_errors'] = [rmse(p_a, p_real['A']), rmse(p_d, p_real['D'])]
 
         ### append current user to the dict that contains all the data
         all_data[u_id] = sub_data
