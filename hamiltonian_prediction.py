@@ -138,8 +138,7 @@ def get_question_H_constant_gamma(psi_0, p_real):
     errors = dict(zip(list(p_real.keys()), [e_a, e_b, e_ab, e_c, e_d, e_cd]))
 
     # note: I think that gamma learns the mean of all probabilities
-    print('mean single probs = %.2f' % np.mean([p_a, p_b, p_c, p_d]))
-    print('mean conj probs = %.2f' % np.mean([p_ab, p_cd]))
+    print('real probabilities : {}'.format(p_real))
     print('predicted probabilities : {}'.format(p_pred))
     print('=========================')
 

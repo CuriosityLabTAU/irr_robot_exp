@@ -162,14 +162,15 @@ def calc_first2questions(df):
         sub_data = get_question_H_constant_gamma(psi_0, p_real)
 
         p_real_3 = get_user_question_probs(d0, question = 'Q4', probs=['A', 'D']) # real probs of 3rd question
-        ### for ART
+        ### TODO: for ART
         h_all = [sub_data[1]['h_q']['0'], sub_data[1]['h_q']['3'], sub_data[1]['h_q']['01']]
         p_a, p_d, p_ad, e_a, e_d, e_ad = get3probs(h_all, p_real_3, psi_0, qs=['A', 'D', 'A_D'])
         sub_data['pred_errors'] = [e_a, e_d, e_ad]
         sub_data['pred_probs3'] = [p_a, p_d, p_ad]
+        sub_data['real_probs3'] = p_real_3
 
         ### errors from pre
-        sub_data['pre_errors'] = [rmse(p_a, p_real['A']), rmse(p_d, p_real['D'])]
+        sub_data['pre_errors'] = [rmse(p_real_3['A'], p_real['A']), rmse(p_real_3['D'], p_real['D'])]
 
         ### append current user to the dict that contains all the data
         all_data[u_id] = sub_data
@@ -177,15 +178,30 @@ def calc_first2questions(df):
         stop = timeit.default_timer()
         print('user %d/%d: ' %(ui + 1, len(df['survey_code'].unique())), stop - start)
 
-    ### calc all errors:
+    ### calc mean probability for previous P(A), p(D):
     p_am = []
     p_dm = []
-    p_adm = []
+    p_am3 = []
+    p_dm3 = []
+    p_adm3 = []
     for u_id, tu in all_data.items():
         p_am.append(tu[0]['p_a'][0])
         p_dm.append(tu[1]['p_b'][0])
+
+        ### mean of the probabilities from the 3rd question
+        p_am3.append(tu['real_probs3']['A'][0])
+        p_dm3.append(tu['real_probs3']['D'][0])
+        p_adm3.append(tu['real_probs3']['A_D'][0])
+
     p_am = np.array(p_am).mean()
     p_dm = np.array(p_dm).mean()
+    p_am3 = np.array(p_am3).mean()
+    p_dm3 = np.array(p_dm3).mean()
+    p_adm3 = np.array(p_adm3).mean()
+
+    for u_id, tu in enumerate(all_data.unique()):
+        tu['mean_pre_err'] = [rmse(tu['real_probs3']['A'], p_am), rmse(tu['real_probs3']['D'], p_dm)]
+        tu['mean_3_err'] = [rmse(tu['real_probs3']['A'], p_am3), rmse(tu['real_probs3']['D'], p_dm3, p_am3), rmse(tu['real_probs3']['A_D'], p_adm3)]
 
     ### save dict with np
     np.save('data/processed_data/all_data_dict_gamma.npy', all_data)
