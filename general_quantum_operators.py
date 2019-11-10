@@ -5,7 +5,10 @@ def rmse(pred_, real_):
     try:
         a = np.subtract([x[0][0] for x in pred_], real_)
     except:
-        a = pred_[0][0] - real_
+        try:
+            a = pred_[0][0] - real_
+        except:
+            a = np.array(pred_) - np.array(real_)
     b = np.square(a)
     c = b.mean()
     d = np.sqrt(c)
