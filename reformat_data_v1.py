@@ -142,7 +142,6 @@ def get_user_question_probs(df, question, probs = ['A', 'B']):
 
 def calc_first2questions(df):
     ### calculate all the parameters and psi for the first 2 questions
-
     all_data = {}
     for ui, u_id in enumerate(df['survey_code'].unique()):
         start = timeit.default_timer()
@@ -169,11 +168,24 @@ def calc_first2questions(df):
         sub_data['pred_errors'] = [e_a, e_d, e_ad]
         sub_data['pred_probs3'] = [p_a, p_d, p_ad]
 
+        ### errors from pre
+        # sub_data['pre_errors'] = [rmse(p_a, p_real['A']), rmse(p_d, p_real['D'])]
+
         ### append current user to the dict that contains all the data
         all_data[u_id] = sub_data
 
         stop = timeit.default_timer()
         print('user %d/%d: ' %(ui + 1, len(df['survey_code'].unique())), stop - start)
+
+    ### calc all errors:
+    p_am = []
+    p_dm = []
+    p_adm = []
+    for u_id, tu in all_data.items():
+        p_am.append(tu[0]['p_a'][0])
+        p_dm.append(tu[1]['p_b'][0])
+    p_am = np.array(p_am).mean()
+    p_dm = np.array(p_dm).mean()
 
     ### save dict with np
     np.save('data/processed_data/all_data_dict_gamma.npy', all_data)

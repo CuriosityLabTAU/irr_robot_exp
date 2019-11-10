@@ -12,7 +12,7 @@ def fun_to_minimize_all(h_all, real_P, psi_0, return_all=False):
     :param real_P: dictionary of the real probabilities for the first 2 question
     :return:
     '''
-    p_a, p_b, p_ab, e_a, e_b, e_ab = get3probs(h_all, real_P, psi_0, qs=['A', 'B', 'A_B'])
+    p_a, p_b, p_ab, e_a, e_b, e_ab = get3probs([h_all[0],h_all[1],h_all[-1]], real_P, psi_0, qs=['A', 'B', 'A_B'])
 
     # propagate psi
     H_ = compose_H([h_all[0], h_all[1], h_all[-1]], all_q = [0,1])
@@ -20,7 +20,10 @@ def fun_to_minimize_all(h_all, real_P, psi_0, return_all=False):
 
     p_c, p_d, p_cd, e_c, e_d, e_cd = get3probs([h_all[2],h_all[3],h_all[-1]], real_P, psi_1, qs=['C', 'D', 'C_D'])
 
+    # err_ = rmse([p_a, p_b, p_ab], list(real_P.values())[:3])
+    # err_ = np.sqrt(((p_a-list(real_P.values())[0])**2 + (p_b-list(real_P.values())[1])**2 + (p_ab-list(real_P.values())[2])**2)[0])
     err_ = rmse([p_a, p_b, p_ab, p_c, p_d, p_cd], list(real_P.values()))
+
     if return_all:
         return p_a, p_b, p_ab, p_c, p_d, p_cd, e_a, e_b, e_ab, e_c, e_d, e_cd, H_, psi_1
     else:
@@ -45,21 +48,21 @@ def fun_to_minimize_v1(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2, h_mi
     err_ = rmse(p_, real_p_)
     return err_, p_
 
-def fun_to_minimize_all(h_all=[h_a, h_b, h_c, h_d, gamma_], psi_0):
-    _, p_a = fun_to_minimize_v1(h_all[0], psi_0)
-    _, p_b = fun_to_minimize_v1(h_all[1], psi_0)
-    _, p_ab = fun_to_minimize_v1(h_all[-1], psi_0) # gamma_
-
-    # propagate psi
-    H_ = compose_H([h_a, h_b, gamma_])
-    psi_1 = get_psi(H_, psi_0)
-
-    _, p_c = fun_to_minimize_v1(h_all[2], psi_1)
-    _, p_d = fun_to_minimize_v1(h_all[3], psi_1)
-    _, p_cd = fun_to_minimize_v1(h_all[-1], psi_1) # gamma_
-
-    err_ = rmse([p_a, p_b, p_ab, p_c, p_d, p_cd], real_p)
-    return err_
+# def fun_to_minimize_all(h_all=[h_a, h_b, h_c, h_d, gamma_], psi_0):
+#     _, p_a = fun_to_minimize_v1(h_all[0], psi_0)
+#     _, p_b = fun_to_minimize_v1(h_all[1], psi_0)
+#     _, p_ab = fun_to_minimize_v1(h_all[-1], psi_0) # gamma_
+#
+#     # propagate psi
+#     H_ = compose_H([h_a, h_b, gamma_])
+#     psi_1 = get_psi(H_, psi_0)
+#
+#     _, p_c = fun_to_minimize_v1(h_all[2], psi_1)
+#     _, p_d = fun_to_minimize_v1(h_all[3], psi_1)
+#     _, p_cd = fun_to_minimize_v1(h_all[-1], psi_1) # gamma_
+#
+#     err_ = rmse([p_a, p_b, p_ab, p_c, p_d, p_cd], real_p)
+#     return err_
 
 
 
@@ -133,6 +136,8 @@ def general_minimize(f, args_, x_0, method = 'L-BFGS-B', bounds = None):
         # x_0_rand = x_0r[np.random.randint(2)]
         # res_temp = minimize(f, x_0_rand, args=args_, method=method, bounds=bounds, options={'disp': False})
         res_temp = minimize(f, x_0, args=args_, method=method, bounds=bounds, options={'disp': False})
+        # res_temp = minimize(f, x_0, args=args_, method='SLSQP', bounds=bounds, options={'disp': False})
+        # res_temp = minimize(f, x_0, args=args_, method='POWELL', options={'disp': False})
 
         if res_temp.fun < min_err:
             min_err = res_temp.fun

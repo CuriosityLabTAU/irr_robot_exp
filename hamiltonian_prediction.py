@@ -129,7 +129,7 @@ def get_question_H_constant_gamma(psi_0, p_real):
     sub_q_data = {}
 
     ### calculate all the {h} for the first 2 questions with gamma = h_ab==h_cd
-    res_temp = general_minimize(fun_to_minimize_all, args_=(p_real, psi_0), x_0 = np.zeros(5))
+    res_temp = general_minimize(fun_to_minimize_all, args_=(p_real, psi_0), x_0 = np.random.rand(5,1))
     [h_a, h_b, h_c, h_d, gamma_] = res_temp.x
 
     p_a, p_b, p_ab, p_c, p_d, p_cd, e_a, e_b, e_ab, e_c, e_d, e_cd, H_, psi_1 = fun_to_minimize_all([h_a, h_b, h_c, h_d, gamma_], p_real, psi_0, return_all=True)

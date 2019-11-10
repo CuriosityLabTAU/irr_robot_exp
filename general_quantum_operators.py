@@ -2,7 +2,14 @@ import numpy as np
 from scipy.linalg import expm
 
 def rmse(pred_, real_):
-    return np.sqrt(np.square(np.subtract(pred_, real_)).mean())
+    try:
+        a = np.subtract([x[0][0] for x in pred_], real_)
+    except:
+        a = pred_[0][0] - real_
+    b = np.square(a)
+    c = b.mean()
+    d = np.sqrt(c)
+    return d
 
 
 def zero_H(n_qubits=2):
