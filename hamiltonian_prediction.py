@@ -17,6 +17,8 @@ from sklearn.neural_network import MLPRegressor
 
 import os.path
 
+from reformat_data_v1 import hq_q, prob_q
+
 
 
 h_names_gen = ['0', '1', '2', '3', '01', '23']
@@ -24,7 +26,11 @@ h_names_letter = ['A', 'B', 'C', 'D', 'AB', 'CD', 'pred']
 
 def sub_q_p(df, u_id, p_id):
     d = df[(df['userID'] == u_id)]
-    q = d['q3'].values[0]
+    if p_id == 2:
+        ### that was the default for the physical experiment :(
+        q = d['q3'].values[0]
+    else:
+        q = d[p_id].values[0]
     d = d[d.columns[d.columns.str.contains(q)]].reset_index(drop=True)
 
     p = {
@@ -118,6 +124,71 @@ def get_question_H(psi_0, all_q, p_real, h_a_and_b=None, with_mixing=True, h_mix
 
     return sub_q_data
 
+
+def get_question_H_constant_gamma(psi_0, p_real):
+    sub_q_data = {}
+
+    ### calculate all the {h} for the first 2 questions with gamma = h_ab==h_cd
+    res_temp = general_minimize(fun_to_minimize_all, args_=(p_real, psi_0), x_0 = np.zeros(5))
+    [h_a, h_b, h_c, h_d, gamma_] = res_temp.x
+
+    p_a, p_b, p_ab, p_c, p_d, p_cd, e_a, e_b, e_ab, e_c, e_d, e_cd, H_, psi_1 = fun_to_minimize_all([h_a, h_b, h_c, h_d, gamma_], p_real, psi_0, return_all=True)
+
+    p_pred = dict(zip(list(p_real.keys()), [p_a, p_b, p_ab, p_c, p_d, p_cd]))
+    errors = dict(zip(list(p_real.keys()), [e_a, e_b, e_ab, e_c, e_d, e_cd]))
+
+    # note: I think that gamma learns the mean of all probabilities
+    print('mean single probs = %.2f' % np.mean([p_a, p_b, p_c, p_d]))
+    print('mean conj probs = %.2f' % np.mean([p_ab, p_cd]))
+    print('predicted probabilities : {}'.format(p_pred))
+    print('=========================')
+
+    for p_id in [0,1]:
+        sub_q_data[p_id] = {}
+        if p_id == 0:
+            ps = ['a','b', 'a_b']
+        elif p_id == 1:
+            ps = ['c','d', 'c_d']
+        for p in ps:
+            P = p.upper()
+            p = p.replace('_','')
+            sub_q_data[p_id]['p_%s' % p] = p_real[P]
+            sub_q_data[p_id]['p_%s_h' % p] = p_pred[P]
+            sub_q_data[p_id]['p_%s_err' % p] = errors[P]
+
+        if p_id == 0: # 1st question
+            all_q = [0,1]
+            sub_q_data[p_id]['h_q'] = hq_q.copy()
+            sub_q_data[p_id]['prob_q'] = prob_q.copy()
+            sub_q_data[p_id]['h_a'] = h_a
+            sub_q_data[p_id]['h_b'] = h_b
+            sub_q_data[p_id]['h_ab'] = gamma_
+            sub_q_data[p_id]['psi'] = psi_1
+            
+        else: # 2nd question
+            all_q = [2, 3]
+            sub_q_data[p_id]['h_q'] = sub_q_data[p_id - 1]['h_q'].copy()
+            sub_q_data[p_id]['prob_q'] = sub_q_data[p_id - 1]['prob_q'].copy()
+            sub_q_data[p_id]['h_a'] = h_c
+            sub_q_data[p_id]['h_b'] = h_d
+            sub_q_data[p_id]['h_ab'] = gamma_
+            
+            ### update the state after the 2nd question 
+            full_h = [h_c, h_d, gamma_]
+            total_H = compose_H(full_h, [2,3], n_qubits=4)
+            psi_2 = get_psi(total_H, psi_1)
+            sub_q_data[p_id]['psi'] = psi_2
+
+        ### update the {h} from the most recent question.
+        sub_q_data[p_id]['h_q'][str(all_q[0])] = sub_q_data[p_id]['h_a']
+        sub_q_data[p_id]['h_q'][str(all_q[1])] = sub_q_data[p_id]['h_b']
+        sub_q_data[p_id]['h_q'][str(all_q[0]) + str(all_q[1])] = sub_q_data[p_id]['h_ab']
+
+        ### update the {probs} from the most recent question.
+        sub_q_data[p_id]['prob_q'][str(all_q[0])] = p_real['A']
+        sub_q_data[p_id]['prob_q'][str(all_q[1])] = p_real['B']
+
+    return sub_q_data
 
 def calculations_before_question3(use_neutral = False, with_mixing = True, h_mix_type = 0, test_code = False):
     df = pd.read_csv('data/new_dataframe.csv', index_col=0)

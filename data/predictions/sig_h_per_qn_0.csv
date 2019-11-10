@@ -1,12 +1,2 @@
 qn,h_a,h_b,h_c,h_d,h_ab,h_ac,h_ad,h_bc,h_bd,h_cd,qubits
-Q6,"0    1.0
-Name: h_a, dtype: float64","0    1.0
-Name: h_b, dtype: float64","0    1.0
-Name: h_c, dtype: float64","0    1.0
-Name: h_d, dtype: float64","0   -1.0
-Name: h_ab, dtype: float64","0   -1.0
-Name: h_ac, dtype: float64","0   -1.0
-Name: h_ad, dtype: float64","0    1.0
-Name: h_bc, dtype: float64","0    1.0
-Name: h_bd, dtype: float64","0    1.0
-Name: h_cd, dtype: float64","[0, 3]"
+Q6,0.0417537374098127,-0.6798001136295653,0.8381136018546875,0.9885798397083464,-0.04590488084507149,-0.3802329814913096,0.014408635481590881,-0.4384136028130276,0.527673388950967,-0.7829154086296795,"[0, 3]"

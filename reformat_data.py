@@ -175,6 +175,75 @@ def calc_all_questions(df):
             sub_data[p_id]['prob_q'][str(all_q[0])] = p_real['A']
             sub_data[p_id]['prob_q'][str(all_q[1])] = p_real['B']
 
+
+        ### append current user to the dict that contains all the data
+        all_data[u_id] = sub_data
+
+        stop = timeit.default_timer()
+        print('user %d/%d: ' %(ui + 1, len(df['survey_code'].unique())), stop - start)
+
+    ### save dict with np
+    np.save('data/processed_data/all_data_dict.npy', all_data)
+
+    print(''' 
+    ================================================================================
+    || Done calculating {h_i} for all questions for all users.                    || 
+    || Data was saved to: data/processed_data/all_data_dict.npy                   || 
+    ================================================================================''')
+
+    return all_data
+
+def calc_all_questions_constant_gamma(df):
+    ### calculate all the parameters and psi for the first 2 questions
+
+    all_data = {}
+    for ui, u_id in enumerate(df['survey_code'].unique()):
+        start = timeit.default_timer()
+
+        ### init psi
+        psi_0 = uniform_psi(n_qubits=4)
+        sub_data = {
+            'h_q': {}
+        }
+
+        ### the data of specific user
+        d0 = df[(df['survey_code'] == u_id)]
+
+        ### run on all questions
+        for p_id, q in enumerate(['Q2', 'Q4', 'Q6']):
+            d = d0.copy()
+
+            ### take the real probs of the user
+            d = d[d.columns[d.columns.str.contains(q)]].reset_index(drop=True)
+            p_real = {
+                'A': d[d.columns[d.columns.str.contains('pa_')]].values,
+                'B': d[d.columns[d.columns.str.contains('pb_')]].values,
+                'A_B': d[d.columns[d.columns.str.contains('pab_')]].values
+            }
+
+            ### is the third question is conj/ disj
+            all_q, fal = q_qubits_fal(q)
+
+            sub_data[p_id] = get_question_H(psi_0, all_q, p_real, fallacy_type=fal)
+
+            psi_0 = sub_data[p_id]['psi']
+
+            if p_id == 0:
+                sub_data[p_id]['h_q'] = hq_q.copy()
+                sub_data[p_id]['prob_q'] = prob_q.copy()
+            else:
+                sub_data[p_id]['h_q'] = sub_data[p_id-1]['h_q'].copy()
+                sub_data[p_id]['prob_q'] = sub_data[p_id-1]['prob_q'].copy()
+
+            ### update the {h} from the most recent question.
+            sub_data[p_id]['h_q'][str(all_q[0])] = sub_data[p_id]['h_a']
+            sub_data[p_id]['h_q'][str(all_q[1])] = sub_data[p_id]['h_b']
+            sub_data[p_id]['h_q'][str(all_q[0])+str(all_q[1])] = sub_data[p_id]['h_ab']
+
+            ### update the {probs} from the most recent question.
+            sub_data[p_id]['prob_q'][str(all_q[0])] = p_real['A']
+            sub_data[p_id]['prob_q'][str(all_q[1])] = p_real['B']
+
         ### append current user to the dict that contains all the data
         all_data[u_id] = sub_data
 

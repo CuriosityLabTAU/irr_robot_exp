@@ -262,17 +262,17 @@ all_users_df[choices_app] = all_users_df[choices_app].replace(rationality_dict)
 ### story position to art/suspect
 
 
-# cdf[] = cdf['s%d_Q2' % s]
-cdf[sq5.replace('s%d' % s, fst_story.values[0])] = cdf['s%d_Q2' % s]
-for row in all_users_df.iterrows():
-    for i in [0,1]:
-        fst_story = row[1]['first story']
-        scnd_story = list(stories - set(fst_story))
-        sq1 = 's%d_Q2' % i
-        sq5 = 's%d_Q5' % i
-        # todo: continue here...
-        qual_df[sq1.replace('s%d' % i, fst_story.values[0])] = qual_df['s%d_Q2' % i]
-        qual_df[sq5.replace('s%d' % i, fst_story.values[0])] = qual_df['s%d_Q2' % i]
+# # cdf[] = cdf['s%d_Q2' % s]
+# cdf[sq5.replace('s%d' % s, fst_story.values[0])] = cdf['s%d_Q2' % s]
+# for row in all_users_df.iterrows():
+#     for i in [0,1]:
+#         fst_story = row[1]['first story']
+#         scnd_story = list(stories - set(fst_story))
+#         sq1 = 's%d_Q2' % i
+#         sq5 = 's%d_Q5' % i
+#         # todo: continue here...
+#         qual_df[sq1.replace('s%d' % i, fst_story.values[0])] = qual_df['s%d_Q2' % i]
+#         qual_df[sq5.replace('s%d' % i, fst_story.values[0])] = qual_df['s%d_Q2' % i]
 
 chosen_robot_df = pd.concat((qual_df.loc[:, choices_cols], all_users_df[choices_app]), axis = 1)
 
@@ -291,14 +291,14 @@ pvs, corr_df = calculate_corr_with_pvalues(chosen_robot_df)
 
 corr_df[pvs<0.05] = 0
 
-sns.heatmap(chosen_robot_df.corr()[pvs<.05], annot=True)
-plt.show()
+# sns.heatmap(chosen_robot_df.corr()[pvs<.05], annot=True)
 
 ### which robot was chosen when.
 chosen_robot_df.hist()
-qual_df['Q3'].value_counts() # 1: man, 2: woman
+print(qual_df['Q3'].value_counts()) # 1: man, 2: woman
 
 
 all_users_df[sclmns(all_users_df, ['_first_choice', '_final_choice', '_consistent_choice'])]
 
+plt.show()
 print()
