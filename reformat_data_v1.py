@@ -6,6 +6,7 @@ import seaborn as sns
 from hamiltonian_prediction import *
 
 import timeit
+from termcolor import cprint
 
 ### questions organizer dictionary
 questions = {'conj': {'Q2': [0, 1],
@@ -142,6 +143,8 @@ def get_user_question_probs(df, question, probs = ['A', 'B']):
 
 def calc_first2questions(df):
     ### calculate all the parameters and psi for the first 2 questions
+
+    cprint('Started calculating all the parameters for all the users', 'blue')
     all_data = {}
     for ui, u_id in enumerate(df['survey_code'].unique()):
         start = timeit.default_timer()
@@ -169,6 +172,14 @@ def calc_first2questions(df):
         sub_data['pred_probs3'] = [p_a, p_d, p_ad]
         sub_data['real_probs3'] = p_real_3
 
+        ### This addition is for compatibility with non-gamma code.
+        p_real_3_ = list(p_real_3.values())
+        sub_data[2] = {}
+        sub_data[2]['p_a'] = [p_real_3_[0]]
+        sub_data[2]['p_b'] = [p_real_3_[1]]
+        sub_data[2]['p_ab'] = [p_real_3_[2]]
+        sub_data[2]['h_q'] = sub_data[1]['h_q'].copy()
+
         ### errors from pre
         sub_data['pre_errors'] = [rmse(p_real_3['A'], p_real['A']), rmse(p_real_3['D'], p_real['D'])]
 
@@ -176,7 +187,7 @@ def calc_first2questions(df):
         all_data[u_id] = sub_data
 
         stop = timeit.default_timer()
-        print('user %d/%d: ' %(ui + 1, len(df['survey_code'].unique())), stop - start)
+        cprint('finished calculating all the parameters for user %d/%d, took %.2f s' %(ui + 1, len(df['survey_code'].unique()), stop - start), 'blue')
 
     ### calc mean probability for previous P(A), p(D):
     p_am = []

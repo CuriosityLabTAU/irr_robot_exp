@@ -17,6 +17,7 @@ from RegscorePy import bic # https://pypi.org/project/RegscorePy/
 from sklearn.metrics import mean_squared_error
 from skopt import gp_minimize
 import nevergrad as ng
+from termcolor import cprint
 
 global train_q_data_qn
 
@@ -139,16 +140,30 @@ def fun_to_minimize_grandH_nevergrad(x0, x1,x2,x3,x4,x5,x6,x7,x8,x9):
     return np.sqrt(np.mean(err_))
 
 
-def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
+def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfold=True, gamma=False):
     '''cross validation only for the third question'''
     global hs, train_q_data_qn
+
+    cprint('''
+    starting to calculate U and it's prediction
+    minimization type: %s
+    kfold: %s,
+    is (h_ab = _hcd) : %s''' %(min_type, str(kfold), str(gamma)),'magenta')
+
+    if not os.path.exists('data/predictions/%s' % min_type):
+        os.mkdir('data/predictions/%s'%min_type)
+
     ### load the dataframe containing all the data
     raw_df = pd.read_csv('data/processed_data/clear_df.csv')
     raw_df.rename({'survey_code':'userID'},axis = 1, inplace=True)
     raw_df.reset_index(drop=True, inplace=True)
 
-    ### loading all the dat of the firs 3 questions
-    all_data = np.load('data/processed_data/all_data_dict.npy').item()
+    if gamma:
+        ### loading gamma data
+        all_data = np.load('data/processed_data/all_data_dict_gamma.npy').item()
+    else:
+        ### loading all the data of the firs 3 questions
+        all_data = np.load('data/processed_data/all_data_dict.npy').item()
 
     ### creating a dictionary with users that had the same question as the third question
     user_same_q_list = {}
@@ -173,11 +188,12 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
     for qn, user_list in user_same_q_list.items():
         user_list = np.array(user_list)
 
+        ### define test percent size.
         # test_precent = 30./len(user_list) # how many % is 30 users from all the users.
-        test_precent = 0
-        user_list_train, user_list_test = train_test_split(user_list, test_size=test_precent , random_state=3)
+        # user_list_train, user_list_test = train_test_split(user_list, test_size=test_precent , random_state=3)
+        user_list_train=user_list.copy()
 
-        ### TODO: be careful with this!!!
+
         try:
             test_users[qn] = user_list_test.copy()
         except:
@@ -187,23 +203,28 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
         all_q, fal = q_qubits_fal(qn)
 
         ### split the users to test and train using kfold - each user will be one time in test
-        k = user_list_train.__len__()  # 10
+        if kfold:
+            k = user_list_train.__len__()  # 10
+        else:
+            k = 2
         kf = KFold(n_splits=k)
         kf.get_n_splits(user_list_train)
 
-        print('=================================================================')  # to differentiate between qn
+        cprint('''==============================
+        Analyzing question %s ''' % qn, 'magenta')  # to differentiate between qn
         # x0_i = np.zeros([10]) ### initialize x0 for the first run
         ### n randomizations of x_0
         n = 1
-        np.random.seed(1)
+        np.random.seed(42)
         x_i = np.random.random(size=(n, 10)) * 2.0 - 1.0
         x_i[0, :] = 0
         for j in range(n):
-            print('''===========initilization number %d============''' % j)
+            cprint('''=========== initialization of x_0 number %d============''' % j, 'blue')
             x0_i = x_i[j, :]
+
             for i, (train_index, test_index) in enumerate(kf.split(user_list_train)):
-                print(
-                    '>>> currently running k_fold analysis to calculate U on question: %s, k = %d/%d.' % (qn, i + 1, k))
+                cprint(
+                    'currently running k_fold analysis to calculate U on question: %s, k = %d/%d.' % (qn, i + 1, k), 'blue')
                 q_info[qn] = {}
                 q_info[qn]['U_params_h'] = {}
                 q_info[qn]['H_ols'] = {}
@@ -242,9 +263,14 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                 p_b_80 = []
                 p_ab_80 = []
                 for u_id, tu in train_q_data_qn.items():
-                    p_a_80.append(tu[2]['p_a'][0])
-                    p_b_80.append(tu[2]['p_b'][0])
-                    p_ab_80.append(tu[2]['p_ab'][0])
+                    try:
+                        p_a_80.append(tu[2]['p_a'][0])
+                        p_b_80.append(tu[2]['p_b'][0])
+                        p_ab_80.append(tu[2]['p_ab'][0])
+                    except:
+                        p_a_80.append(tu[2]['p_a'])
+                        p_b_80.append(tu[2]['p_b'])
+                        p_ab_80.append(tu[2]['p_ab'])
                 p_a_80 = np.array(p_a_80).mean()
                 p_b_80 = np.array(p_b_80).mean()
                 p_ab_80 = np.array(p_ab_80).mean()
@@ -254,9 +280,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                     h_names = ['0', '1', '2', '3', '01', '23', str(all_q[0]) + str(all_q[1])]
 
                     # find U for each question #
-                    start = time.clock()
-                    # time.perf_counter()
-
+                    start = time.perf_counter()  
 
                     ### set bounds to all parameters
                     bounds = np.ones([10, 2])
@@ -268,11 +292,12 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                                                     x_0=x0_i, method='L-BFGS-B', bounds=bounds) #, look at global optimizations at scipy.optimize
                                                     # x_0=np.zeros([10]), method='Powell', bounds=bounds) #L-BFGS-B, look at global optimizations at scipy.optimize
                                                                       # method='annealing'
+                    ### global minimization
                     if min_type == 'global':
                         res_temp = gp_minimize(fun_to_minimize_grandH_skopt,  # the function to minimize
                                           dimensions=bounds,  # the bounds on each dimension of x
                                           acq_func="EI",  # the acquisition function
-                                          n_calls=11,  # the number of evaluations of f
+                                          n_calls=100,  # the number of evaluations of f
                                           n_random_starts=10,  # the number of random initialization points
                                           n_jobs=4,
                                           # noise=0.1 ** 2,  # the noise level (optional)
@@ -299,8 +324,8 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
 
                     # print(res_temp)
 
-                    end = time.clock()
-                    print('question %s, U optimization took %.2f s' % (qn, end - start))
+                    end = time.perf_counter()  
+                    cprint('question %s, U optimization took %.2f s' % (qn, end - start), 'blue')
 
                     ### saving all 10 {h_i} for this k fold run
                     q_info[qn]['U_params_h'][i] = [res_temp]
@@ -311,8 +336,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                     ### calculate U from current {h_i}
                     q_info[qn]['U'] = U_from_H(grandH_from_x(res_temp.x, fal))
 
-                    # calculate H_AB model based on MLR/ ANN to predict p_ab
-                    print('calculating h_ab for question %s to building a model from the k_fold' %(qn))
+                    ### calculate H_AB model based on MLR/ ANN to predict p_ab
                     H_dict = {}
                     for u_id, tu in test_q_data_qn.items():
                         psi_0 = np.dot(q_info[qn]['U'], tu[1]['psi'])
@@ -331,12 +355,11 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                     df_H = pd.DataFrame.from_dict(data=H_dict, orient='index')
                     df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD', 'target']
 
-                    start = time.clock()
+                    start = time.perf_counter()  
                     mtd = 'lr'  # 'ANN'
-                    print('creating model for predicting h_ij on test set using ' + mtd + ' method')
                     est = pred_h_ij(df_H, method = mtd)
-                    end = time.clock()
-                    print('question %s, h_ij prediction took %.2f s' % (qn, end - start))
+                    end = time.perf_counter()  
+                    cprint('question %s, h_ij using %s prediction took %.2f s' % (qn, mtd, end - start), 'blue')
 
                     q_info[qn]['H_ols'][i] = est
 
@@ -347,7 +370,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
 
 
             ### predict on test users
-            print('calculating predictions on test data')
+            cprint('calculating predictions on test data', 'blue')
             U = q_info[qn]['U']
             for u_id, tu in test_q_data_qn.items():
                 temp = {}
@@ -368,19 +391,30 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
                 psi_dyn = np.dot(U, psi_0)
 
                 ### probabilities from the 1st and 2nd question
-                temp['p_a'] = [tu[0]['p_a'][0]]
-                temp['p_b'] = [tu[0]['p_b'][0]]
-                temp['p_c'] = [tu[1]['p_a'][0]]
-                temp['p_d'] = [tu[1]['p_b'][0]]
+                try:
+                    temp['p_a'] = [tu[0]['p_a'][0]]
+                    temp['p_b'] = [tu[0]['p_b'][0]]
+                    temp['p_c'] = [tu[1]['p_a'][0]]
+                    temp['p_d'] = [tu[1]['p_b'][0]]
+                except:
+                    temp['p_a'] = [tu[0]['p_a']]
+                    temp['p_b'] = [tu[0]['p_b']]
+                    temp['p_c'] = [tu[1]['p_c']]
+                    temp['p_d'] = [tu[1]['p_d']]
 
                 ### probs of the current question taken from previous questions
                 temp['p_a_pre'] = temp[q1]
                 temp['p_b_pre'] = temp[q2]
 
                 ### real probabilities in the third question
-                temp['p_a_real'] = [tu[2]['p_a'][0]]
-                temp['p_b_real'] = [tu[2]['p_b'][0]]
-                temp['p_ab_real'] = [tu[2]['p_ab'][0]]
+                try:
+                    temp['p_a_real'] = [tu[2]['p_a'][0]]
+                    temp['p_b_real'] = [tu[2]['p_b'][0]]
+                    temp['p_ab_real'] = [tu[2]['p_ab'][0]]
+                except:
+                    temp['p_a_real'] = [tu[2]['p_a']]
+                    temp['p_b_real'] = [tu[2]['p_b']]
+                    temp['p_ab_real'] = [tu[2]['p_ab']]
 
                 ### predicted probabilities with U
                 h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
@@ -421,25 +455,25 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global'):
 
                 df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
 
-            np.save('data/predictions/kfold_all_data_dict_kfold_%d.npy' % j, all_data)
-            np.save('data/predictions/kfold_UbyQ_kfold_%d.npy' % j, q_info)
+            np.save('data/predictions/%s/kfold_all_data_dict_kfold_%d.npy' % (min_type, j), all_data)
+            np.save('data/predictions/%s/kfold_UbyQ_kfold_%d.npy' % (min_type, j), q_info)
 
 
-    np.save('data/predictions/test_users.npy', test_users)
+    np.save('data/predictions/%s/test_users.npy' % min_type, test_users)
     df_h.reset_index(inplace=True)
-    df_h.to_csv('data/predictions/df_h.csv')
+    df_h.to_csv('data/predictions/%s/df_h.csv'% min_type)
     # df_H.to_csv('data/predictions/df_H_ols.csv')
     df_prediction.set_index('id', inplace=True)
-    df_prediction.to_csv('data/predictions/kfold_prediction.csv')  # index=False)
+    df_prediction.to_csv('data/predictions/%s/kfold_prediction.csv' % min_type)  # index=False)
 
-    print(''' 
+    cprint(''' 
     ================================================================================
     || Done calculating {h_i} for every qn/ kfold.                                || 
     || Predictions were saved to: data/predictions/kfold_prediction.csv           || 
     || {h_i} were saved to: data/predictions/df_h.csv                             || 
     || Dictionary of test users (per qn): saved to data/test_users.npy            || 
     || Supplementary files were saved to: kfold_all_data_dict.npy, kfold_UbyQ.npy || 
-    ================================================================================''')
+    ================================================================================''', 'magenta')
 
 def statistical_diff_h(df_h,i = ''):
     '''
@@ -668,7 +702,7 @@ def main():
 
     ### How many times to repeat the cross validation
     if calcU:
-        calculate_all_data_cross_val_kfold()
+        calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=True)
 
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
