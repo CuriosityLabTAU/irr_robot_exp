@@ -363,101 +363,100 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
 
                     q_info[qn]['H_ols'][i] = est
 
-            ### TODO: add this controls.
-            ### linear and logistic regression on for predicting the third question probs (real data).
-            ### from all the (probs) prediction --> irr: 0/1 (predicted data).
-            ### logistic regression for predicting the third question irr (real data).
+                    ### TODO: add this controls.
+                    ### linear and logistic regression on for predicting the third question probs (real data).
+                    ### from all the (probs) prediction --> irr: 0/1 (predicted data).
+                    ### logistic regression for predicting the third question irr (real data).
+
+                    np.save('data/predictions/%s/kfold_all_data_dict_kfold_%d.npy' % (min_type, j), all_data)
+                    np.save('data/predictions/%s/kfold_UbyQ_kfold_%d.npy' % (min_type, j), q_info)
+
+                    ### predict on test users
+                    cprint('calculating predictions on test data', 'blue')
+                    U = q_info[qn]['U']
+                    for u_id, tu in test_q_data_qn.items():
+                        temp = {}
+                        temp['id'] = [u_id]
+                        temp['qn'] = [qn]
+
+                        temp['q1'] = [all_q[0]]
+                        temp['q2'] = [all_q[1]]
+
+                        q1 = 'p_' + qubits_dict[temp['q1'][0]]
+                        q2 = 'p_' + qubits_dict[temp['q2'][0]]
+                        q12 = 'p_' + qubits_dict[temp['q1'][0]] + qubits_dict[temp['q2'][0]]
+
+                        ### psi after the 2nd question
+                        psi_0 = tu[1]['psi']
+
+                        ### propogate psi with the U of the 3rd question
+                        psi_dyn = np.dot(U, psi_0)
+
+                        ### probabilities from the 1st and 2nd question
+                        try:
+                            temp['p_a'] = [tu[0]['p_a'][0]]
+                            temp['p_b'] = [tu[0]['p_b'][0]]
+                            temp['p_c'] = [tu[1]['p_a'][0]]
+                            temp['p_d'] = [tu[1]['p_b'][0]]
+                        except:
+                            temp['p_a'] = [tu[0]['p_a']]
+                            temp['p_b'] = [tu[0]['p_b']]
+                            temp['p_c'] = [tu[1]['p_c']]
+                            temp['p_d'] = [tu[1]['p_d']]
+
+                        ### probs of the current question taken from previous questions
+                        temp['p_a_pre'] = temp[q1]
+                        temp['p_b_pre'] = temp[q2]
+
+                        ### real probabilities in the third question
+                        try:
+                            temp['p_a_real'] = [tu[2]['p_a'][0]]
+                            temp['p_b_real'] = [tu[2]['p_b'][0]]
+                            temp['p_ab_real'] = [tu[2]['p_ab'][0]]
+                        except:
+                            temp['p_a_real'] = [tu[2]['p_a']]
+                            temp['p_b_real'] = [tu[2]['p_b']]
+                            temp['p_ab_real'] = [tu[2]['p_ab']]
+
+                        ### predicted probabilities with U
+                        h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
+                        h_b = [None, tu[1]['h_q'][str(int(temp['q2'][0]))], None]
+
+                        temp['p_a_pred_U'] = [get_general_p(h_a, all_q, '0', psi_dyn, n_qubits=4).flatten()[0]]
+                        temp['p_b_pred_U'] = [get_general_p(h_b, all_q, '1', psi_dyn, n_qubits=4).flatten()[0]]
+
+                        ### predicted probabilities with I
+                        temp['p_a_pred_I']  = [get_general_p(h_a, all_q, '0', psi_0, n_qubits=4).flatten()[0]]
+                        temp['p_b_pred_I']  = [get_general_p(h_b, all_q, '1', psi_0, n_qubits=4).flatten()[0]]
 
 
-            ### predict on test users
-            cprint('calculating predictions on test data', 'blue')
-            U = q_info[qn]['U']
-            for u_id, tu in test_q_data_qn.items():
-                temp = {}
-                temp['id'] = [u_id]
-                temp['qn'] = [qn]
+                        ### predicted probabilities with mean from fold %
+                        temp['p_a_mean80'] = [p_a_80]
+                        temp['p_b_mean80'] = [p_b_80]
+                        temp['p_ab_mean80'] = [p_ab_80]
 
-                temp['q1'] = [all_q[0]]
-                temp['q2'] = [all_q[1]]
+                        # use question H to generate h_ab
+                        h_names_gen = ['0', '1', '2', '3', '01', '23']
+                        if with_mixing:
+                            all_h = {'one': []}
+                            for hs in h_names_gen:
+                                all_h['one'].append(tu[2]['h_q'][hs])
+                            df_H = pd.DataFrame.from_dict(data=all_h, orient='index')
+                            df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD']
+                            try:
+                                h_ab = q_info[qn]['H_ols'][i].predict(df_H).values[0]
+                            except:
+                                h_ab = q_info[qn]['H_ols'][i].predict(df_H)[0]
+                        else:
+                            h_ab = 0.0
 
-                q1 = 'p_' + qubits_dict[temp['q1'][0]]
-                q2 = 'p_' + qubits_dict[temp['q2'][0]]
-                q12 = 'p_' + qubits_dict[temp['q1'][0]] + qubits_dict[temp['q2'][0]]
+                        # full_h = [tu['h_q'][str(int(temp['q1'][0]))], tu['h_q'][str(int(temp['q2'][0]))], h_ab]
+                        full_h = [None, None, h_ab]
+                        temp['p_ab_pred_ols_U']    = [get_general_p(full_h, all_q, fal, psi_dyn, n_qubits=4).flatten()[0]]
+                        temp['p_ab_pred_ols_I'] = [get_general_p(full_h, all_q, fal, psi_0, n_qubits=4).flatten()[0]]
 
-                ### psi after the 2nd question
-                psi_0 = tu[1]['psi']
-
-                ### propogate psi with the U of the 3rd question
-                psi_dyn = np.dot(U, psi_0)
-
-                ### probabilities from the 1st and 2nd question
-                try:
-                    temp['p_a'] = [tu[0]['p_a'][0]]
-                    temp['p_b'] = [tu[0]['p_b'][0]]
-                    temp['p_c'] = [tu[1]['p_a'][0]]
-                    temp['p_d'] = [tu[1]['p_b'][0]]
-                except:
-                    temp['p_a'] = [tu[0]['p_a']]
-                    temp['p_b'] = [tu[0]['p_b']]
-                    temp['p_c'] = [tu[1]['p_c']]
-                    temp['p_d'] = [tu[1]['p_d']]
-
-                ### probs of the current question taken from previous questions
-                temp['p_a_pre'] = temp[q1]
-                temp['p_b_pre'] = temp[q2]
-
-                ### real probabilities in the third question
-                try:
-                    temp['p_a_real'] = [tu[2]['p_a'][0]]
-                    temp['p_b_real'] = [tu[2]['p_b'][0]]
-                    temp['p_ab_real'] = [tu[2]['p_ab'][0]]
-                except:
-                    temp['p_a_real'] = [tu[2]['p_a']]
-                    temp['p_b_real'] = [tu[2]['p_b']]
-                    temp['p_ab_real'] = [tu[2]['p_ab']]
-
-                ### predicted probabilities with U
-                h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
-                h_b = [None, tu[1]['h_q'][str(int(temp['q2'][0]))], None]
-
-                temp['p_a_pred_U'] = [get_general_p(h_a, all_q, '0', psi_dyn, n_qubits=4).flatten()[0]]
-                temp['p_b_pred_U'] = [get_general_p(h_b, all_q, '1', psi_dyn, n_qubits=4).flatten()[0]]
-
-                ### predicted probabilities with I
-                temp['p_a_pred_I']  = [get_general_p(h_a, all_q, '0', psi_0, n_qubits=4).flatten()[0]]
-                temp['p_b_pred_I']  = [get_general_p(h_b, all_q, '1', psi_0, n_qubits=4).flatten()[0]]
-
-
-                ### predicted probabilities with mean from fold %
-                temp['p_a_mean80'] = [p_a_80]
-                temp['p_b_mean80'] = [p_b_80]
-                temp['p_ab_mean80'] = [p_ab_80]
-
-                # use question H to generate h_ab
-                h_names_gen = ['0', '1', '2', '3', '01', '23']
-                if with_mixing:
-                    all_h = {'one': []}
-                    for hs in h_names_gen:
-                        all_h['one'].append(tu[2]['h_q'][hs])
-                    df_H = pd.DataFrame.from_dict(data=all_h, orient='index')
-                    df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD']
-                    try:
-                        h_ab = q_info[qn]['H_ols'][i].predict(df_H).values[0]
-                    except:
-                        h_ab = q_info[qn]['H_ols'][i].predict(df_H)[0]
-                else:
-                    h_ab = 0.0
-
-                # full_h = [tu['h_q'][str(int(temp['q1'][0]))], tu['h_q'][str(int(temp['q2'][0]))], h_ab]
-                full_h = [None, None, h_ab]
-                temp['p_ab_pred_ols_U']    = [get_general_p(full_h, all_q, fal, psi_dyn, n_qubits=4).flatten()[0]]
-                temp['p_ab_pred_ols_I'] = [get_general_p(full_h, all_q, fal, psi_0, n_qubits=4).flatten()[0]]
-
-                df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
-
-            np.save('data/predictions/%s/kfold_all_data_dict_kfold_%d.npy' % (min_type, j), all_data)
-            np.save('data/predictions/%s/kfold_UbyQ_kfold_%d.npy' % (min_type, j), q_info)
-
+                        df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
+                        cprint(df_prediction.shape, 'magenta')
 
     np.save('data/predictions/%s/test_users.npy' % min_type, test_users)
     df_h.reset_index(inplace=True)
@@ -704,8 +703,8 @@ def main():
     if calcU:
         # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=True)
         # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=True)
-        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
-        calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=False)
+        calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
+        # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=False)
 
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
