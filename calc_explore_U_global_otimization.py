@@ -463,8 +463,10 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
     df_h.to_csv('data/predictions/%s/df_h.csv'% min_type)
     # df_H.to_csv('data/predictions/df_H_ols.csv')
     df_prediction.set_index('id', inplace=True)
-    df_prediction.to_csv('data/predictions/%s/kfold_prediction.csv' % min_type)  # index=False)
-
+    if gamma:
+        df_prediction.to_csv('data/predictions/%s_gamma/kfold_prediction.csv' % (min_type, gamma))  # index=False)
+    else:
+        df_prediction.to_csv('data/predictions/%s/kfold_prediction.csv' % (min_type, gamma))
     cprint(''' 
     ================================================================================
     || Done calculating {h_i} for every qn/ kfold.                                || 
