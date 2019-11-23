@@ -701,9 +701,9 @@ def main():
 
     ### How many times to repeat the cross validation
     if calcU:
-        calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=True)
+        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=True)
         # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=True)
-        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
+        calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
         # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=False)
 
     if average_U:
