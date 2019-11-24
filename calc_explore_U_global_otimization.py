@@ -368,8 +368,8 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                     ### from all the (probs) prediction --> irr: 0/1 (predicted data).
                     ### logistic regression for predicting the third question irr (real data).
 
-                    np.save('data/predictions/%s/kfold_all_data_dict_kfold_%d.npy' % (min_type, j), all_data)
-                    np.save('data/predictions/%s/kfold_UbyQ_kfold_%d.npy' % (min_type, j), q_info)
+                    np.save('data/predictions/%s_%s/kfold_all_data_dict_kfold_%d.npy' % (min_type, str(gamma), j), all_data)
+                    np.save('data/predictions/%s_%s/kfold_UbyQ_kfold_%d.npy' % (min_type, str(gamma), j), q_info)
 
                     ### predict on test users
                     cprint('calculating predictions on test data', 'blue')
@@ -458,15 +458,12 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                         df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
                         cprint(df_prediction.shape, 'magenta')
 
-    np.save('data/predictions/%s/test_users.npy' % min_type, test_users)
+    np.save('data/predictions/%s_%s/test_users.npy' % (min_type, str(gamma)), test_users)
     df_h.reset_index(inplace=True)
-    df_h.to_csv('data/predictions/%s/df_h.csv'% min_type)
+    df_h.to_csv('data/predictions/%s_%s/df_h.csv'% (min_type, str(gamma)))
     # df_H.to_csv('data/predictions/df_H_ols.csv')
     df_prediction.set_index('id', inplace=True)
-    if gamma:
-        df_prediction.to_csv('data/predictions/%s_gamma/kfold_prediction.csv' % (min_type, gamma))  # index=False)
-    else:
-        df_prediction.to_csv('data/predictions/%s/kfold_prediction.csv' % (min_type, gamma))
+    df_prediction.to_csv('data/predictions/%s_%s/kfold_prediction.csv' % (min_type, str(gamma)))  # index=False)
     cprint(''' 
     ================================================================================
     || Done calculating {h_i} for every qn/ kfold.                                || 
@@ -703,9 +700,11 @@ def main():
 
     ### How many times to repeat the cross validation
     if calcU:
-        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=True)
+        for gamma in [False]:
+            for mt in ['local']:
+                calculate_all_data_cross_val_kfold(min_type=mt, kfold=True, gamma=gamma)
         # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=True)
-        calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
+        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
         # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=False)
 
     if average_U:
