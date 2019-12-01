@@ -3,7 +3,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-all_data = np.load('data/processed_data/all_data_dict_gamma.npy', allow_pickle=True).item()
+# all_data = np.load('data/processed_data/all_data_dict_gamma.npy', allow_pickle=True).item()
+all_data = np.load('data/predictions/local_True/kfold_all_data_dict_kfold_0.npy', allow_pickle=True).item()
 
 err_df = pd.DataFrame(columns=['id', 'e_a_pred', 'e_d_pred', 'e_ad_pred',
                                'e_a_pre', 'e_d_pre',

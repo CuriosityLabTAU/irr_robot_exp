@@ -140,7 +140,6 @@ def get_user_question_probs(df, question, probs = ['A', 'B']):
     }
     return p_real
 
-
 def calc_first2questions(df):
     ### calculate all the parameters and psi for the first 2 questions
 

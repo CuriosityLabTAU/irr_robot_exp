@@ -235,11 +235,6 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                 train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
                 test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
 
-                ### check
-                # train_q_data_qn = train_q_data_qn[11685720]
-                # test_q_data_qn[11685720] = train_q_data_qn.copy()
-                # train_q_data_qn = test_q_data_qn.copy()
-
                 ### taking the mean of the probabilities of the 80 %
                 p_a_80 = []
                 p_b_80 = []
@@ -262,7 +257,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                     h_names = ['0', '1', '2', '3', '01', '23', str(all_q[0]) + str(all_q[1])]
 
                     # find U for each question #
-                    start = time.perf_counter()  
+                    start = time.perf_counter()
 
                     ### set bounds to all parameters
                     bounds = np.ones([10, 2])
@@ -306,7 +301,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
 
                     # print(res_temp)
 
-                    end = time.perf_counter()  
+                    end = time.perf_counter()
                     cprint('question %s, U optimization took %.2f s' % (qn, end - start), 'blue')
 
                     ### saving all 10 {h_i} for this k fold run
@@ -337,10 +332,10 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                     df_H = pd.DataFrame.from_dict(data=H_dict, orient='index')
                     df_H.columns = ['A', 'B', 'C', 'D', 'AB', 'CD', 'target']
 
-                    start = time.perf_counter()  
+                    start = time.perf_counter()
                     mtd = 'lr'  # 'ANN'
                     est = pred_h_ij(df_H, method = mtd)
-                    end = time.perf_counter()  
+                    end = time.perf_counter()
                     cprint('question %s, h_ij using %s prediction took %.2f s' % (qn, mtd, end - start), 'blue')
 
                     q_info[qn]['H_ols'][i] = est
@@ -686,7 +681,7 @@ def main():
     ### Conditions of the run
     if calcU:
         for gamma in [True, False]:
-            for mt in ['global']:
+            for mt in ['local']:
                 calculate_all_data_cross_val_kfold(min_type=mt, kfold=True, gamma=gamma)
 
     if average_U:
