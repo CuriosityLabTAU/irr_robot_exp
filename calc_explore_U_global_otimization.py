@@ -235,24 +235,6 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                 train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
                 test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
 
-                ### THIS IS WITH NO KFOLD
-                # print('=================================================================') # to differentiate between qn
-                # # x0_i = np.zeros([10]) ### initialize x0 for the first run
-                # ### n randomizations of x_0
-                # n = 1
-                # np.random.seed(1)
-                # x_i = np.random.random(size=(n, 10)) * 2.0 - 1.0
-                # x_i[0,:] = 0
-                # q_info[qn] = {}
-                # q_info[qn]['U_params_h'] = {}
-                # q_info[qn]['H_ols'] = {}
-                # train_users, test_users = user_list_train.copy(), user_list_test.copy()
-                # train_q_data_qn = {}
-                # test_q_data_qn = {}
-                #
-                # train_q_data_qn = sub_sample_data(all_data, train_q_data_qn, raw_df, train_users)
-                # test_q_data_qn = sub_sample_data(all_data, test_q_data_qn, raw_df, test_users)
-
                 ### check
                 # train_q_data_qn = train_q_data_qn[11685720]
                 # test_q_data_qn[11685720] = train_q_data_qn.copy()
@@ -297,7 +279,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                         res_temp = gp_minimize(fun_to_minimize_grandH_skopt,  # the function to minimize
                                           dimensions=bounds,  # the bounds on each dimension of x
                                           acq_func="EI",  # the acquisition function
-                                          n_calls=100,  # the number of evaluations of f
+                                          n_calls=300,  # the number of evaluations of f
                                           n_random_starts=10,  # the number of random initialization points
                                           n_jobs=4,
                                           # noise=0.1 ** 2,  # the noise level (optional)
@@ -421,13 +403,16 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                         ### predicted probabilities with U
                         h_a = [tu[1]['h_q'][str(int(temp['q1'][0]))], None, None]
                         h_b = [None, tu[1]['h_q'][str(int(temp['q2'][0]))], None]
+                        h_ad = [None, None, tu[1]['h_q']['01']]
 
                         temp['p_a_pred_U'] = [get_general_p(h_a, all_q, '0', psi_dyn, n_qubits=4).flatten()[0]]
                         temp['p_b_pred_U'] = [get_general_p(h_b, all_q, '1', psi_dyn, n_qubits=4).flatten()[0]]
+                        temp['p_ad_pred_U'] = [get_general_p(h_ad, all_q, 'C', psi_dyn, n_qubits=4).flatten()[0]]
 
                         ### predicted probabilities with I
                         temp['p_a_pred_I']  = [get_general_p(h_a, all_q, '0', psi_0, n_qubits=4).flatten()[0]]
                         temp['p_b_pred_I']  = [get_general_p(h_b, all_q, '1', psi_0, n_qubits=4).flatten()[0]]
+                        temp['p_ad_pred_I'] = [get_general_p(h_ad, all_q, 'C', psi_0, n_qubits=4).flatten()[0]]
 
 
                         ### predicted probabilities with mean from fold %
@@ -698,14 +683,11 @@ def main():
     # average_U = True
     average_U = False
 
-    ### How many times to repeat the cross validation
+    ### Conditions of the run
     if calcU:
-        for gamma in [False]:
-            for mt in ['local']:
+        for gamma in [True, False]:
+            for mt in ['global']:
                 calculate_all_data_cross_val_kfold(min_type=mt, kfold=True, gamma=gamma)
-        # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=True)
-        # calculate_all_data_cross_val_kfold(min_type='global', kfold=True, gamma=False)
-        # calculate_all_data_cross_val_kfold(min_type='local', kfold=True, gamma=False)
 
     if average_U:
         df_h = pd.read_csv('data/predictions/df_h.csv')
