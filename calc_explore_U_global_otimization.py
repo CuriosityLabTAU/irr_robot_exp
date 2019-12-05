@@ -276,7 +276,7 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                                           acq_func="EI",  # the acquisition function
                                           n_calls=300,  # the number of evaluations of f
                                           n_random_starts=10,  # the number of random initialization points
-                                          n_jobs=4,
+                                          n_jobs=16,
                                           # noise=0.1 ** 2,  # the noise level (optional)
                                           random_state=123)  # the random seed
 
@@ -436,7 +436,6 @@ def calculate_all_data_cross_val_kfold(with_mixing=True, min_type='global', kfol
                         temp['p_ab_pred_ols_I'] = [get_general_p(full_h, all_q, fal, psi_0, n_qubits=4).flatten()[0]]
 
                         df_prediction = pd.concat([df_prediction, pd.DataFrame(temp)], axis=0)
-                        cprint(df_prediction.shape, 'magenta')
 
     np.save('data/predictions/%s_%s/test_users.npy' % (min_type, str(gamma)), test_users)
     df_h.reset_index(inplace=True)
@@ -681,7 +680,7 @@ def main():
     ### Conditions of the run
     if calcU:
         for gamma in [True, False]:
-            for mt in ['local']:
+            for mt in ['global']:
                 calculate_all_data_cross_val_kfold(min_type=mt, kfold=True, gamma=gamma)
 
     if average_U:
